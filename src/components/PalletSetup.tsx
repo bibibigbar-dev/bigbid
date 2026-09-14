@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  BidStrategy,
-  FunctionalStatus,
-  LotCondition,
-  PalletConfig,
-  PartMode,
-  SellerSettings,
-  YesNo,
+import {
+  PALLET_SOURCES,
+  type BidStrategy,
+  type FunctionalStatus,
+  type LotCondition,
+  type PalletConfig,
+  type PalletSource,
+  type PartMode,
+  type SellerSettings,
+  type YesNo,
 } from '../types'
 import { buildPalletConfig, peekSequence } from '../lib/pallet'
 import { loadSellerSettings } from '../lib/seller'
@@ -46,6 +48,7 @@ function ModeToggle({
 export function PalletSetup({ initial, onConfirm }: Props) {
   const savedSeller = loadSellerSettings()
   const errorRef = useRef<HTMLParagraphElement>(null)
+  const [source, setSource] = useState<PalletSource>(initial?.source ?? 'amazon')
   const [numValue, setNumValue] = useState(initial?.numValue ?? '1')
   const [numMode, setNumMode] = useState<PartMode>(initial?.numMode ?? 'seq')
   const [alphaValue, setAlphaValue] = useState(initial?.alphaValue ?? '')
@@ -67,7 +70,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
 
   const preview = useMemo(() => {
     try {
-      const draft = buildPalletConfig({ numValue, numMode, alphaValue, alphaMode })
+      const draft = buildPalletConfig({ source, numValue, numMode, alphaValue, alphaMode })
       const cursor =
         initial &&
         initial.numValue === draft.numValue &&
@@ -80,7 +83,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
     } catch {
       return []
     }
-  }, [numValue, numMode, alphaValue, alphaMode, initial])
+  }, [source, numValue, numMode, alphaValue, alphaMode, initial])
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -96,7 +99,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
     }
     setBusy(true)
     try {
-      const config = buildPalletConfig({ numValue, numMode, alphaValue, alphaMode })
+      const config = buildPalletConfig({ source, numValue, numMode, alphaValue, alphaMode })
       await onConfirm(config, {
         sellerCode: sellerCode.trim(),
         remember: rememberSeller,
@@ -126,6 +129,21 @@ export function PalletSetup({ initial, onConfirm }: Props) {
       </p>
 
       <form className="form" onSubmit={(e) => void handleSubmit(e)} noValidate>
+        <div className="pallet-part">
+          <label className="field">
+            <span>Pallet source site</span>
+            <select value={source} onChange={(e) => setSource(e.target.value as PalletSource)}>
+              {PALLET_SOURCES.map((value) => (
+                <option key={value} value={value}>
+                  {value === 'homedepot'
+                    ? 'HomeDepot'
+                    : value.charAt(0).toUpperCase() + value.slice(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="pallet-part">
           <div className="pallet-part-head">
             <span>Digits</span>

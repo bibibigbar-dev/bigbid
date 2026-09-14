@@ -1,6 +1,16 @@
-import type { PalletConfig, PartMode } from '../types'
+import type { PalletConfig, PalletSource, PartMode } from '../types'
 
 const STORAGE_KEY = 'bigbid.pallet'
+const DEFAULT_SOURCE: PalletSource = 'amazon'
+
+function normalizeSource(value: unknown): PalletSource {
+  return value === 'target' ||
+    value === 'walmart' ||
+    value === 'lowes' ||
+    value === 'homedepot'
+    ? value
+    : DEFAULT_SOURCE
+}
 
 export function formatProductNo(num: string, alpha: string): string {
   return `${num}${alpha}`
@@ -101,6 +111,7 @@ export function advanceCursor(config: PalletConfig): PalletConfig {
 }
 
 export function buildPalletConfig(input: {
+  source: PalletSource
   numValue: string
   numMode: PartMode
   alphaValue: string
@@ -120,6 +131,7 @@ export function buildPalletConfig(input: {
   }
   return {
     palletId: formatProductNo(numValue, alphaValue),
+    source: normalizeSource(input.source),
     numValue,
     numMode: input.numMode,
     alphaValue,
@@ -138,6 +150,7 @@ export function loadPalletConfig(): PalletConfig | null {
     const alphaValue = parsed.alphaValue ?? ''
     return {
       palletId: parsed.palletId || formatProductNo(parsed.numValue, alphaValue),
+      source: normalizeSource(parsed.source),
       numValue: parsed.numValue,
       numMode: parsed.numMode,
       alphaValue,

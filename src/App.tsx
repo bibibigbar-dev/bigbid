@@ -191,6 +191,7 @@ export default function App() {
           productNo={nextNo}
           saleOrder={pallet.nextNum.replace(/\D/g, '')}
           bidStrategy={seller.bidStrategy}
+          source={pallet.source}
           lotDescriptionSettings={seller.lotDescription}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {
