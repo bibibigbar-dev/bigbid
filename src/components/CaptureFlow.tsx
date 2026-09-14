@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_CAPTURE_PHOTOS_PER_PRODUCT,
   MAX_PHOTOS_PER_PRODUCT,
@@ -57,9 +57,7 @@ export function CaptureFlow({
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])
-  const [previews, setPreviews] = useState<string[]>([])
   const [referenceImageBlob, setReferenceImageBlob] = useState<Blob | null>(null)
-  const [referencePreview, setReferencePreview] = useState<string | null>(null)
   const [phase, setPhase] = useState<'shoot' | 'review'>('shoot')
   const [fields, setFields] = useState<DraftFields>({
     name: '',
@@ -71,21 +69,20 @@ export function CaptureFlow({
   const [error, setError] = useState('')
   const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(lotDescriptionSettings)
 
-  useEffect(() => {
-    const urls = photos.map((b) => URL.createObjectURL(b))
-    setPreviews(urls)
-    return () => urls.forEach((u) => URL.revokeObjectURL(u))
-  }, [photos])
+  const previews = useMemo(() => photos.map((b) => URL.createObjectURL(b)), [photos])
+  const referencePreview = useMemo(
+    () => (referenceImageBlob ? URL.createObjectURL(referenceImageBlob) : null),
+    [referenceImageBlob],
+  )
 
   useEffect(() => {
-    if (!referenceImageBlob) {
-      setReferencePreview(null)
-      return
-    }
-    const url = URL.createObjectURL(referenceImageBlob)
-    setReferencePreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [referenceImageBlob])
+    return () => previews.forEach((u) => URL.revokeObjectURL(u))
+  }, [previews])
+
+  useEffect(() => {
+    if (!referencePreview) return
+    return () => URL.revokeObjectURL(referencePreview)
+  }, [referencePreview])
 
   async function addFiles(fileList: FileList | null, options?: { reopenCamera?: boolean }) {
     if (!fileList?.length) return

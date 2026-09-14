@@ -115,7 +115,7 @@ async function findAmazonReferenceImage(productName: string, apiKey: string): Pr
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `******
+      Authorization: 'Bearer ' + apiKey,
     },
     body: JSON.stringify({
       model: 'gpt-4.1-mini',
@@ -279,7 +279,7 @@ export async function analyzeProductPhotos(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: 'Bearer ' + apiKey,
     },
     body: JSON.stringify({
       // Better product/price knowledge than mini for brand/model MSRP
