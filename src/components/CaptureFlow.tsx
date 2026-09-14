@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  MAX_CAPTURE_PHOTOS_PER_PRODUCT,
   MAX_PHOTOS_PER_PRODUCT,
   type BidStrategy,
   type FunctionalStatus,
@@ -56,7 +57,7 @@ export function CaptureFlow({
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])
-  const [previews, setPreviews] = useState<string[]>([])
+  const [referenceImageBlob, setReferenceImageBlob] = useState<Blob | null>(null)
   const [phase, setPhase] = useState<'shoot' | 'review'>('shoot')
   const [fields, setFields] = useState<DraftFields>({
     name: '',
@@ -68,18 +69,27 @@ export function CaptureFlow({
   const [error, setError] = useState('')
   const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(lotDescriptionSettings)
 
+  const previews = useMemo(() => photos.map((b) => URL.createObjectURL(b)), [photos])
+  const referencePreview = useMemo(
+    () => (referenceImageBlob ? URL.createObjectURL(referenceImageBlob) : null),
+    [referenceImageBlob],
+  )
+
   useEffect(() => {
-    const urls = photos.map((b) => URL.createObjectURL(b))
-    setPreviews(urls)
-    return () => urls.forEach((u) => URL.revokeObjectURL(u))
-  }, [photos])
+    return () => previews.forEach((u) => URL.revokeObjectURL(u))
+  }, [previews])
+
+  useEffect(() => {
+    if (!referencePreview) return
+    return () => URL.revokeObjectURL(referencePreview)
+  }, [referencePreview])
 
   async function addFiles(fileList: FileList | null, options?: { reopenCamera?: boolean }) {
     if (!fileList?.length) return
     setError('')
-    const room = MAX_PHOTOS_PER_PRODUCT - photos.length
+    const room = MAX_CAPTURE_PHOTOS_PER_PRODUCT - photos.length
     if (room <= 0) {
-      setError(`Maximum ${MAX_PHOTOS_PER_PRODUCT} photos per product.`)
+      setError(`Maximum ${MAX_CAPTURE_PHOTOS_PER_PRODUCT} captured photos per product.`)
       return
     }
     setBusy(true)
@@ -93,7 +103,7 @@ export function CaptureFlow({
       setPhotos((prev) => [...prev, ...next])
 
       // Continuous camera: open camera again after each shot until limit
-      if (options?.reopenCamera && total < MAX_PHOTOS_PER_PRODUCT) {
+      if (options?.reopenCamera && total < MAX_CAPTURE_PHOTOS_PER_PRODUCT) {
         window.setTimeout(() => cameraRef.current?.click(), 350)
       }
     } catch (e) {
@@ -116,6 +126,11 @@ export function CaptureFlow({
     setError('')
     try {
       const result = await analyzeProductPhotos(photos, { bidStrategy, source })
+      setReferenceImageBlob(
+        result.referenceImageBlob && photos.length < MAX_PHOTOS_PER_PRODUCT
+          ? result.referenceImageBlob
+          : null,
+      )
       const parsed = parseDescriptionForEditing(result.description, lotDescriptionSettings)
       setFields({
         name: result.title,
@@ -150,7 +165,7 @@ export function CaptureFlow({
         description: normalized.description,
         salePrice,
         bidPrice: parseMoney(fields.bidPrice),
-        imageBlobs: photos,
+        imageBlobs: referenceImageBlob ? [...photos, referenceImageBlob] : photos,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -159,8 +174,9 @@ export function CaptureFlow({
     }
   }
 
-  const canAddMore = photos.length < MAX_PHOTOS_PER_PRODUCT
+  const canAddMore = photos.length < MAX_CAPTURE_PHOTOS_PER_PRODUCT
   const hasPhotos = photos.length > 0
+  const reviewPreviews = referencePreview ? [...previews, referencePreview] : previews
 
   return (
     <section className="sheet">
@@ -170,8 +186,8 @@ export function CaptureFlow({
       {phase === 'shoot' && (
         <div className="form">
           <p className="muted">
-            Take photos continuously (up to {MAX_PHOTOS_PER_PRODUCT}). After the first photo, a
-            Finish button appears.
+            Take photos continuously (up to {MAX_CAPTURE_PHOTOS_PER_PRODUCT}). After the first
+            photo, a Finish button appears.
           </p>
 
           <div className="capture-actions">
@@ -183,7 +199,7 @@ export function CaptureFlow({
             >
               Take photo
               <span className="btn-sub">
-                {photos.length}/{MAX_PHOTOS_PER_PRODUCT}
+                {photos.length}/{MAX_CAPTURE_PHOTOS_PER_PRODUCT}
               </span>
             </button>
             <button
@@ -258,10 +274,14 @@ export function CaptureFlow({
       {phase === 'review' && (
         <form className="form" onSubmit={(e) => void handleSave(e)}>
           <div className="photo-grid compact">
-            {previews.map((url) => (
+            {reviewPreviews.map((url) => (
               <img key={url} src={url} alt="" className="thumb-sm" />
             ))}
           </div>
+
+          {referencePreview && (
+            <p className="muted tiny">Amazon reference photo was added as the last image.</p>
+          )}
 
           <label className="field">
             <span>Title (max 50 chars, retail shown only if over $100)</span>
