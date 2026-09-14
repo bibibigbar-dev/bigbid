@@ -77,13 +77,12 @@ export function ExportBar({
   async function handleStartOver() {
     setBusy('start-over')
     setMessage('')
+    setConfirmingStartOver(false)
     try {
       await onStartOver()
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Start over failed')
-    } finally {
       setBusy('')
-      setConfirmingStartOver(false)
     }
   }
 

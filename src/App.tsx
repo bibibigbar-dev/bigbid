@@ -4,7 +4,7 @@ import { EditProduct } from './components/EditProduct'
 import { ExportBar } from './components/ExportBar'
 import { PalletSetup } from './components/PalletSetup'
 import { ProductList } from './components/ProductList'
-import { addProduct, estimateStorage, listProducts } from './lib/db'
+import { addProduct, clearAllProducts, estimateStorage, listProducts } from './lib/db'
 import { formatBytes } from './lib/image'
 import {
   formatProductNo,
@@ -18,7 +18,6 @@ import {
   loadSellerSettings,
   saveSellerSettings,
 } from './lib/seller'
-import { clearAllProducts } from './lib/db'
 import type { PalletConfig, Product, SellerSettings } from './types'
 import './App.css'
 
