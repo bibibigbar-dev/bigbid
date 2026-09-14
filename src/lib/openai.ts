@@ -4,6 +4,7 @@ import {
   DEFAULT_HIBID_DESCRIPTION,
   stripLeadingPrice,
 } from './description'
+import { compressToJpeg } from './image'
 import type { BidStrategy, PalletSource } from '../types'
 
 export type AnalyzeResult = {
@@ -12,6 +13,7 @@ export type AnalyzeResult = {
   /** Retail / Reference price — used in Title ($79.99 Name) */
   salePrice: number | null
   bidPrice: number | null
+  referenceImageBlob: Blob | null
 }
 
 const NOT_FOUND_RESULT: AnalyzeResult = {
@@ -19,6 +21,7 @@ const NOT_FOUND_RESULT: AnalyzeResult = {
   description: DEFAULT_HIBID_DESCRIPTION,
   salePrice: null,
   bidPrice: null,
+  referenceImageBlob: null,
 }
 
 function getApiKey(): string {
@@ -55,6 +58,105 @@ function parseMoney(value: unknown): number | null {
     return Number.isFinite(n) ? n : null
   }
   return null
+}
+
+function parseJsonText<T>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
+function extractResponseText(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return ''
+  const direct = (payload as { output_text?: unknown }).output_text
+  if (typeof direct === 'string' && direct.trim()) return direct.trim()
+
+  const output = (payload as {
+    output?: Array<{
+      content?: Array<{ text?: unknown } | { text?: { value?: unknown } }>
+    }>
+  }).output
+
+  if (!Array.isArray(output)) return ''
+
+  return output
+    .flatMap((item) => (Array.isArray(item.content) ? item.content : []))
+    .map((part) => {
+      if (typeof part.text === 'string') return part.text
+      if (part.text && typeof part.text === 'object' && 'value' in part.text) {
+        return typeof part.text.value === 'string' ? part.text.value : ''
+      }
+      return ''
+    })
+    .filter(Boolean)
+    .join('\n')
+    .trim()
+}
+
+function isAmazonImageUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:') return false
+    const host = url.hostname.toLowerCase()
+    return (
+      host.includes('amazon.') ||
+      host.endsWith('media-amazon.com') ||
+      host.endsWith('ssl-images-amazon.com')
+    )
+  } catch {
+    return false
+  }
+}
+
+async function findAmazonReferenceImage(productName: string, apiKey: string): Promise<Blob | null> {
+  const res = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `******
+    },
+    body: JSON.stringify({
+      model: 'gpt-4.1-mini',
+      tools: [{ type: 'web_search_preview' }],
+      input: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `Find one Amazon-hosted product image URL for the exact product "${productName}".
+Return ONLY valid JSON with this shape:
+{"imageUrl":"https://..."}
+
+Rules:
+- Use an Amazon-hosted product image URL, preferably m.media-amazon.com.
+- Prefer the main product image from an Amazon product result.
+- If no reliable Amazon image is found, return {"imageUrl":null}.`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  if (!res.ok) return null
+
+  const payload = (await res.json()) as unknown
+  const raw = extractResponseText(payload)
+  if (!raw) return null
+
+  const parsed = parseJsonText<{ imageUrl?: unknown }>(raw)
+  const imageUrl = typeof parsed?.imageUrl === 'string' ? parsed.imageUrl.trim() : ''
+  if (!imageUrl || !isAmazonImageUrl(imageUrl)) return null
+
+  const imageRes = await fetch(imageUrl)
+  if (!imageRes.ok) return null
+
+  const blob = await imageRes.blob()
+  if (!blob.size) return null
+  return compressToJpeg(blob)
 }
 
 function stripAppearsNewUnused(text: string): string {
@@ -161,11 +263,12 @@ export async function analyzeProductPhotos(
   const sample = images.slice(0, 4)
   const dataUrls = await Promise.all(sample.map(blobToDataUrl))
 
+  const source = options?.source ?? 'amazon'
   const content: Array<
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: 'low' | 'high' } }
   > = [
-    { type: 'text', text: buildAnalysisPrompt(options?.source ?? 'amazon') },
+    { type: 'text', text: buildAnalysisPrompt(source) },
     ...dataUrls.map((url) => ({
       type: 'image_url' as const,
       image_url: { url, detail: 'high' as const },
@@ -216,7 +319,9 @@ export async function analyzeProductPhotos(
     detail?: string
   }
   try {
-    parsed = JSON.parse(raw) as typeof parsed
+    const parsedJson = parseJsonText<typeof parsed>(raw)
+    if (!parsedJson) return NOT_FOUND_RESULT
+    parsed = parsedJson
   } catch {
     return NOT_FOUND_RESULT
   }
@@ -240,10 +345,20 @@ export async function analyzeProductPhotos(
   if (!detail) return NOT_FOUND_RESULT
   const description = buildHibidDescription(detail, title)
 
+  let referenceImageBlob: Blob | null = null
+  if (source === 'amazon') {
+    try {
+      referenceImageBlob = await findAmazonReferenceImage(productName, apiKey)
+    } catch {
+      referenceImageBlob = null
+    }
+  }
+
   return {
     title,
     description,
     salePrice: retailPrice,
     bidPrice,
+    referenceImageBlob,
   }
 }

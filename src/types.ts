@@ -62,4 +62,5 @@ export type ProductInput = {
   imageBlobs: Blob[]
 }
 
-export const MAX_PHOTOS_PER_PRODUCT = 10
+export const MAX_CAPTURE_PHOTOS_PER_PRODUCT = 10
+export const MAX_PHOTOS_PER_PRODUCT = MAX_CAPTURE_PHOTOS_PER_PRODUCT + 1
