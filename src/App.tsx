@@ -8,11 +8,17 @@ import { addProduct, estimateStorage, listProducts } from './lib/db'
 import { formatBytes } from './lib/image'
 import {
   formatProductNo,
+  clearPalletConfig,
   loadPalletConfig,
   savePalletConfig,
   syncCursorToGaps,
 } from './lib/pallet'
-import { loadSellerSettings, saveSellerSettings } from './lib/seller'
+import {
+  clearSellerSettings,
+  loadSellerSettings,
+  saveSellerSettings,
+} from './lib/seller'
+import { clearAllProducts } from './lib/db'
 import type { PalletConfig, Product, SellerSettings } from './types'
 import './App.css'
 
@@ -179,6 +185,19 @@ export default function App() {
                 palletId={pallet.palletId}
                 sellerCode={seller.sellerCode}
                 onChanged={async () => refresh(pallet)}
+                onStartOver={async () => {
+                  await clearAllProducts()
+                  clearPalletConfig()
+                  clearSellerSettings()
+                  setProducts([])
+                  setSelected(new Set())
+                  setEditing(null)
+                  setPallet(null)
+                  setSeller(loadSellerSettings())
+                  setNextNo('1')
+                  setStorageLabel('')
+                  setMode('setup')
+                }}
               />
             </>
           )}
