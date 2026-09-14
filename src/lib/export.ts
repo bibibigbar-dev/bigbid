@@ -8,7 +8,7 @@ function safeFileName(productNo: string): string {
 }
 
 function csvEscape(value: string | number | null | undefined): string {
-  const s = value == null ? '' : String(value)
+  const s = (value == null ? '' : String(value)).replace(/\r?\n/g, '\r\n')
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
   return s
 }
@@ -29,7 +29,7 @@ export function buildLotsCsv(products: Product[], sellerCode: string): string {
       csvEscape(sellerCode),
     ].join(','),
   )
-  return [header, ...rows].join('\n')
+  return [header, ...rows].join('\r\n')
 }
 
 export function downloadLotsCsv(
@@ -38,7 +38,7 @@ export function downloadLotsCsv(
   palletId: string,
 ): string {
   const csv = buildLotsCsv(products, sellerCode)
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' })
   const filename = `${safeFileName(palletId)}_lots.csv`
   saveAs(blob, filename)
   return filename
@@ -51,7 +51,7 @@ function buildCsvFile(
 ): { file: File; filename: string } {
   const filename = `${safeFileName(palletId)}_lots.csv`
   const csv = buildLotsCsv(products, sellerCode)
-  const file = new File([csv], filename, { type: 'text/csv' })
+  const file = new File(['\uFEFF', csv], filename, { type: 'text/csv;charset=utf-8' })
   return { file, filename }
 }
 
