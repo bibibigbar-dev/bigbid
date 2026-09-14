@@ -225,7 +225,7 @@ export async function analyzeProductPhotos(
 
   const detail =
     buildProductDescriptionBody(parsed) || (parsed.detail ?? '').trim()
-  if (!productName || !detail) return NOT_FOUND_RESULT
+  if (!detail) return NOT_FOUND_RESULT
   const description = buildHibidDescription(detail, title)
 
   return {
