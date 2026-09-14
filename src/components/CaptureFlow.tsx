@@ -13,6 +13,7 @@ type DraftFields = {
 
 type Props = {
   productNo: string
+  saleOrder: string
   bidStrategy?: BidStrategy
   onCancel: () => void
   onSaved: (data: {
@@ -34,11 +35,11 @@ function parseMoney(value: string): number | null {
 
 export function CaptureFlow({
   productNo,
+  saleOrder,
   bidStrategy = 'recommended',
   onCancel,
   onSaved,
 }: Props) {
-  const saleOrder = productNo.replace(/\D/g, '')
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])

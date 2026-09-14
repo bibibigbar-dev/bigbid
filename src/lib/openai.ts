@@ -61,6 +61,9 @@ function buildProductDescriptionBody(parsed: {
   const desc = stripAppearsNewUnused((parsed.productDescription ?? '').trim())
   if (desc) parts.push(desc)
 
+  const included = stripAppearsNewUnused((parsed.included ?? '').trim())
+  if (included) parts.push(`Included: ${included}`)
+
   const notes = stripAppearsNewUnused((parsed.conditionNotes ?? '').trim())
   if (notes) parts.push(notes)
 

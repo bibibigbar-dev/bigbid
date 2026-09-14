@@ -189,6 +189,7 @@ export default function App() {
         <CaptureFlow
           key={nextNo}
           productNo={nextNo}
+          saleOrder={pallet.nextNum.replace(/\D/g, '')}
           bidStrategy={seller.bidStrategy}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {
