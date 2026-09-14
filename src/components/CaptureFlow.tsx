@@ -146,7 +146,9 @@ export function CaptureFlow({
 
   return (
     <section className="sheet">
-      <h1>Lot / Sale Order {saleOrder}</h1>
+      <h1>
+        Lot {productNo} <span className="muted">· Sale Order {saleOrder}</span>
+      </h1>
 
       {phase === 'shoot' && (
         <div className="form">

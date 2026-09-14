@@ -45,17 +45,18 @@ function parseMoney(value: unknown): number | null {
   return null
 }
 
+function stripAppearsNewUnused(text: string): string {
+  return text
+    .replace(/\bappears\s+new,?\s*unused\b[.!]?\s*$/i, '')
+    .replace(/\s+\.$/, '.')
+    .trim()
+}
+
 function buildProductDescriptionBody(parsed: {
   productDescription?: string
   included?: string
   conditionNotes?: string
 }): string {
-  const stripAppearsNewUnused = (text: string): string =>
-    text
-      .replace(/\bappears\s+new,?\s*unused\b[.!]?\s*$/i, '')
-      .replace(/\s+\.$/, '.')
-      .trim()
-
   const parts: string[] = []
   const desc = stripAppearsNewUnused((parsed.productDescription ?? '').trim())
   if (desc) parts.push(desc)
