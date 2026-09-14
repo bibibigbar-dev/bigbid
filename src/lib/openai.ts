@@ -52,23 +52,23 @@ function stripAppearsNewUnused(text: string): string {
     .trim()
 }
 
-function buildProductDescriptionBody(parsed: {
-  productDescription?: string
-  included?: string
-  conditionNotes?: string
-}): string {
-  const parts: string[] = []
-  const desc = stripAppearsNewUnused((parsed.productDescription ?? '').trim())
-  if (desc) parts.push(desc)
+function sanitizeProductDescription(text: string): string {
+  return text
+    .split(/\n\s*\n/)
+    .map((part) => stripAppearsNewUnused(part.trim()))
+    .filter(
+      (part) =>
+        part &&
+        !/^included\s*:/i.test(part) &&
+        !/^new,\s*sealed in original packaging\b/i.test(part) &&
+        !/^sealed in original packaging\b/i.test(part),
+    )
+    .join('\n\n')
+    .trim()
+}
 
-  const included = stripAppearsNewUnused((parsed.included ?? '').trim())
-  if (included) parts.push(`Included: ${included}`)
-
-  const notes = stripAppearsNewUnused((parsed.conditionNotes ?? '').trim())
-  if (notes) parts.push(notes)
-
-  if (parts.length === 0) return ''
-  return parts.join('\n\n')
+function buildProductDescriptionBody(parsed: { productDescription?: string }): string {
+  return sanitizeProductDescription((parsed.productDescription ?? '').trim())
 }
 
 /**
