@@ -1,6 +1,6 @@
 export const HIBID_TITLE_MAX = 50
 
-const DESCRIPTION_PREFIX = [
+export const DEFAULT_HIBID_DESCRIPTION = [
   'Condition: Open Box / Customer Return',
   'Condition Notes:',
   'Damage: No',
@@ -55,7 +55,7 @@ export function buildTitle(productName: string, retailPrice: number | null): str
  */
 export function buildHibidDescription(detail: string, fallbackTitle: string): string {
   const body = detail.trim() || fallbackTitle.trim() || 'Untitled item'
-  return `${DESCRIPTION_PREFIX}\n${body}`
+  return `${DEFAULT_HIBID_DESCRIPTION}\n${body}`
 }
 
 /** Pull only the free-text under *Description (or whole text if marker missing). */

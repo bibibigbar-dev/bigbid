@@ -1,4 +1,9 @@
-import { buildHibidDescription, buildTitle, stripLeadingPrice } from './description'
+import {
+  buildHibidDescription,
+  buildTitle,
+  DEFAULT_HIBID_DESCRIPTION,
+  stripLeadingPrice,
+} from './description'
 import type { BidStrategy } from '../types'
 
 export type AnalyzeResult = {
@@ -7,6 +12,13 @@ export type AnalyzeResult = {
   /** Retail / Reference price — used in Title ($79.99 Name) */
   salePrice: number | null
   bidPrice: number | null
+}
+
+const NOT_FOUND_RESULT: AnalyzeResult = {
+  title: '?',
+  description: DEFAULT_HIBID_DESCRIPTION,
+  salePrice: null,
+  bidPrice: null,
 }
 
 function getApiKey(): string {
@@ -172,7 +184,7 @@ export async function analyzeProductPhotos(
     choices?: Array<{ message?: { content?: string } }>
   }
   const raw = json.choices?.[0]?.message?.content
-  if (!raw) throw new Error('OpenAI returned an empty response.')
+  if (!raw) return NOT_FOUND_RESULT
 
   let parsed: {
     productName?: string
@@ -194,7 +206,7 @@ export async function analyzeProductPhotos(
   try {
     parsed = JSON.parse(raw) as typeof parsed
   } catch {
-    throw new Error('Failed to parse OpenAI JSON.')
+    return NOT_FOUND_RESULT
   }
 
   const retailPrice = resolveRetailPrice(parsed)
@@ -206,13 +218,14 @@ export async function analyzeProductPhotos(
       ? (recommendedBid ?? aggressiveBid ?? parseMoney(parsed.bidPrice))
       : (aggressiveBid ?? recommendedBid ?? parseMoney(parsed.bidPrice))
 
-  const productName =
-    stripLeadingPrice((parsed.productName ?? parsed.name ?? '').trim()) ||
-    'Untitled item'
+  const resolvedProductName = stripLeadingPrice((parsed.productName ?? parsed.name ?? '').trim())
+  if (!resolvedProductName) return NOT_FOUND_RESULT
+  const productName = resolvedProductName
   const title = buildTitle(productName, retailPrice)
 
   const detail =
     buildProductDescriptionBody(parsed) || (parsed.detail ?? '').trim()
+  if (!productName || !detail) return NOT_FOUND_RESULT
   const description = buildHibidDescription(detail, title)
 
   return {
