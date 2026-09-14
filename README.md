@@ -36,6 +36,25 @@ npm install
 npm run dev
 ```
 
+## Deploy on Render (Static Site)
+
+Create a **Static Site** from [bibibigbar-dev/bigbid](https://github.com/bibibigbar-dev/bigbid):
+
+| Setting | Value |
+|--------|--------|
+| Build Command | `npm install && npm run build` |
+| Publish Directory | `dist` |
+
+Environment (Build):
+
+```
+VITE_OPENAI_API_KEY=sk-...
+```
+
+Vite bakes this key into the client bundle at **build time**, so set it in Render before building and redeploy after changing it.
+
+Or use the included `render.yaml` Blueprint.
+
 ## CSV columns
 
 `Lot Number, Sale Order, Title, Description, Start Bid Each, Seller Code`
