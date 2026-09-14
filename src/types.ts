@@ -13,11 +13,26 @@ export type PalletConfig = {
 
 export type BidStrategy = 'recommended' | 'aggressive'
 
+export type LotCondition = 'New' | 'Open Box' | 'Used'
+export type YesNo = 'Yes' | 'No'
+export type FunctionalStatus = 'Yes' | 'No' | 'Unable to Test'
+
+export type LotDescriptionSettings = {
+  condition: LotCondition
+  conditionNotes: string
+  damage: YesNo
+  functional: FunctionalStatus
+  missingParts: YesNo
+  packaging: YesNo
+  description: string
+}
+
 export type SellerSettings = {
   sellerCode: string
   remember: boolean
   /** Which AI start-bid field to use. Default: recommended */
   bidStrategy: BidStrategy
+  lotDescription: LotDescriptionSettings
 }
 
 export type Product = {

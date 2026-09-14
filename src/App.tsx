@@ -191,6 +191,7 @@ export default function App() {
           productNo={nextNo}
           saleOrder={pallet.nextNum.replace(/\D/g, '')}
           bidStrategy={seller.bidStrategy}
+          lotDescriptionSettings={seller.lotDescription}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {
             await addProduct(data)
@@ -210,6 +211,7 @@ export default function App() {
       {mode === 'edit' && editing && (
         <EditProduct
           product={editing}
+          lotDescriptionSettings={seller.lotDescription}
           onCancel={() => {
             setEditing(null)
             setMode('list')

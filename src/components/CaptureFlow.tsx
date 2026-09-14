@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MAX_PHOTOS_PER_PRODUCT, type BidStrategy } from '../types'
+import { MAX_PHOTOS_PER_PRODUCT, type BidStrategy, type LotDescriptionSettings } from '../types'
 import { compressToJpeg } from '../lib/image'
 import { analyzeProductPhotos } from '../lib/openai'
 import { normalizeLotContent } from '../lib/description'
@@ -15,6 +15,7 @@ type Props = {
   productNo: string
   saleOrder: string
   bidStrategy?: BidStrategy
+  lotDescriptionSettings: LotDescriptionSettings
   onCancel: () => void
   onSaved: (data: {
     productNo: string
@@ -37,6 +38,7 @@ export function CaptureFlow({
   productNo,
   saleOrder,
   bidStrategy = 'recommended',
+  lotDescriptionSettings,
   onCancel,
   onSaved,
 }: Props) {
@@ -127,6 +129,7 @@ export function CaptureFlow({
         title: fields.name.trim(),
         description: fields.description.trim(),
         salePrice,
+        lotDescriptionSettings,
       })
       await onSaved({
         productNo,
