@@ -222,7 +222,6 @@ export default function App() {
             savePalletConfig(synced)
             setPallet(synced)
             await refresh(synced)
-            setMode('list')
           }}
         />
       )}
