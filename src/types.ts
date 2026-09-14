@@ -1,8 +1,12 @@
 export type PartMode = 'fixed' | 'seq'
 
+export const PALLET_SOURCES = ['amazon', 'target', 'walmart', 'lowes', 'homedepot'] as const
+export type PalletSource = (typeof PALLET_SOURCES)[number]
+
 export type PalletConfig = {
   /** Label used in export filenames, e.g. 1b */
   palletId: string
+  source: PalletSource
   numValue: string
   numMode: PartMode
   alphaValue: string

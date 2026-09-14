@@ -4,7 +4,7 @@ import {
   DEFAULT_HIBID_DESCRIPTION,
   stripLeadingPrice,
 } from './description'
-import type { BidStrategy } from '../types'
+import type { BidStrategy, PalletSource } from '../types'
 
 export type AnalyzeResult = {
   title: string
@@ -106,8 +106,19 @@ function resolveRetailPrice(parsed: {
   return retail
 }
 
-const ANALYSIS_PROMPT = `You are an expert US liquidation / open-box auction cataloger for HiBid.
+const SOURCE_LABEL: Record<PalletSource, string> = {
+  amazon: 'Amazon',
+  target: 'Target',
+  walmart: 'Walmart',
+  lowes: 'Lowes',
+  homedepot: 'HomeDepot',
+}
+
+function buildAnalysisPrompt(source: PalletSource): string {
+  const sourceLabel = SOURCE_LABEL[source]
+  return `You are an expert US liquidation / open-box auction cataloger for HiBid.
 Look at the product photo(s), identify the exact brand and model, then estimate realistic US market prices for THAT product.
+The pallet source is ${sourceLabel}. Prioritize matching this product against ${sourceLabel} listings and use ${sourceLabel} as the primary reference when deciding model identity and retailPrice.
 
 Return ONLY valid JSON with these keys:
 - productName (string): brand + model, NO dollar amounts
@@ -138,10 +149,11 @@ CRITICAL pricing rules:
 - If unsure of retail, set retailPrice to null rather than guessing a generic $79.99.
 
 Money fields must be numbers (not "$200"). Unknown → null. JSON only.`
+}
 
 export async function analyzeProductPhotos(
   images: Blob[],
-  options?: { bidStrategy?: BidStrategy },
+  options?: { bidStrategy?: BidStrategy; source?: PalletSource },
 ): Promise<AnalyzeResult> {
   if (images.length === 0) throw new Error('No photos to analyze.')
   const apiKey = getApiKey()
@@ -153,7 +165,7 @@ export async function analyzeProductPhotos(
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: 'low' | 'high' } }
   > = [
-    { type: 'text', text: ANALYSIS_PROMPT },
+    { type: 'text', text: buildAnalysisPrompt(options?.source ?? 'amazon') },
     ...dataUrls.map((url) => ({
       type: 'image_url' as const,
       image_url: { url, detail: 'high' as const },
