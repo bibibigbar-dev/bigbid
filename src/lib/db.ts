@@ -1,29 +1,82 @@
-import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Product, ProductInput } from '../types'
 
 type StoredImage = { type: string; data: ArrayBuffer }
 
 type StoredProduct = Omit<Product, 'imageBlobs' | 'sortNo'> & {
   sortNo: string
-  /** Preferred mobile-safe image storage */
   images?: StoredImage[]
-  /** Legacy fields */
   imageBlobs?: Blob[]
   imageBlob?: Blob
 }
 
-interface BigbidDB extends DBSchema {
-  products: {
-    key: string
-    value: StoredProduct
-    indexes: { 'by-productNo': string }
-  }
+type FallbackRecord = Omit<StoredProduct, 'images' | 'imageBlobs' | 'imageBlob'> & {
+  imageTypes: string[]
+  imagesB64?: string[]
 }
 
 const DB_NAME = 'bigbid'
 const DB_VERSION = 4
+const META_KEY = 'bigbid.products.v1'
+const IMAGE_CACHE = 'bigbid-images-v1'
 
-let dbPromise: Promise<IDBPDatabase<BigbidDB>> | null = null
+let dbPromise: Promise<IDBDatabase> | null = null
+let forceFallback = false
+
+function newId(): string {
+  try {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
+  } catch {
+    // older Safari
+  }
+  return `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+/** Property access only — never the bare identifier `indexedDB` (Safari throws). */
+function getIdbFactory(): IDBFactory | null {
+  try {
+    const g = globalThis as typeof globalThis & {
+      webkitIndexedDB?: IDBFactory
+      mozIndexedDB?: IDBFactory
+    }
+    const factory = g.indexedDB ?? g.webkitIndexedDB ?? g.mozIndexedDB
+    if (factory && typeof factory.open === 'function') return factory
+  } catch {
+    // private mode / blocked storage
+  }
+  return null
+}
+
+function getCacheStorage(): CacheStorage | null {
+  try {
+    const api = globalThis.caches
+    if (api && typeof api.open === 'function') return api
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+function shouldUseFallback(err: unknown): boolean {
+  const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err)
+  return /indexedDB|IDBFactory|IDBOpenDBRequest|Can't find variable|Cannot find variable|not available|SecurityError/i.test(
+    msg,
+  )
+}
+
+function idbErrorMessage(err: unknown): string {
+  if (!(err instanceof Error)) return 'Save failed. Try again.'
+  const name = (err as DOMException).name || err.name
+  if (name === 'QuotaExceededError' || /quota/i.test(err.message)) {
+    return 'Storage full. Delete some lots or free phone storage, then try again.'
+  }
+  if (name === 'ConstraintError') {
+    return 'This lot number already exists. Go back and capture again.'
+  }
+  if (shouldUseFallback(err)) {
+    return 'Phone storage is blocked. Turn off Private mode / allow cookies for this site, then refresh.'
+  }
+  return err.message || 'Save failed. Try again.'
+}
 
 async function blobsToStored(blobs: Blob[]): Promise<StoredImage[]> {
   return Promise.all(
@@ -63,59 +116,88 @@ function normalizeProduct(raw: StoredProduct): Product {
   }
 }
 
-function idbErrorMessage(err: unknown): string {
-  if (!(err instanceof Error)) return 'IndexedDB save failed.'
-  const name = (err as DOMException).name || err.name
-  if (name === 'QuotaExceededError') {
-    return 'Storage full. Delete some lots or free phone storage, then try again.'
-  }
-  if (name === 'ConstraintError') {
-    return 'This lot number already exists. Go back and capture again.'
-  }
-  if (name === 'VersionError' || name === 'InvalidStateError') {
-    return 'Local database needs reset. Refresh the page and try once more.'
-  }
-  return err.message || 'IndexedDB save failed.'
-}
-
-async function openFreshDb(): Promise<IDBPDatabase<BigbidDB>> {
-  return openDB<BigbidDB>(DB_NAME, DB_VERSION, {
-    upgrade(db, _oldVersion, _newVersion, transaction) {
-      if (!db.objectStoreNames.contains('products')) {
-        const store = db.createObjectStore('products', { keyPath: 'id' })
-        store.createIndex('by-productNo', 'productNo', { unique: true })
-        return
-      }
-
-      const store = transaction.objectStore('products')
-      // Drop legacy indexes that caused mobile upgrade issues
-      for (const name of ['by-sort', 'by-created']) {
-        try {
-          ;(store as unknown as { deleteIndex: (n: string) => void }).deleteIndex(name)
-        } catch {
-          // index may not exist
-        }
-      }
-      if (!store.indexNames.contains('by-productNo')) {
-        store.createIndex('by-productNo', 'productNo', { unique: true })
-      }
-    },
-    blocked() {
-      console.warn('IndexedDB upgrade blocked — close other tabs of this app.')
-    },
+function reqToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error ?? new Error('Storage request failed.'))
   })
 }
 
-async function getDb(): Promise<IDBPDatabase<BigbidDB>> {
+function waitForTx(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error ?? new Error('Storage transaction failed.'))
+    tx.onabort = () => reject(tx.error ?? new Error('Storage transaction aborted.'))
+  })
+}
+
+function upgradeDb(db: IDBDatabase, tx: IDBTransaction) {
+  if (!db.objectStoreNames.contains('products')) {
+    const store = db.createObjectStore('products', { keyPath: 'id' })
+    store.createIndex('by-productNo', 'productNo', { unique: true })
+    return
+  }
+  const store = tx.objectStore('products')
+  for (const name of ['by-sort', 'by-created']) {
+    try {
+      if (store.indexNames.contains(name)) store.deleteIndex(name)
+    } catch {
+      // index may not exist
+    }
+  }
+  if (!store.indexNames.contains('by-productNo')) {
+    store.createIndex('by-productNo', 'productNo', { unique: true })
+  }
+}
+
+function openWithFactory(factory: IDBFactory): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    let request: IDBOpenDBRequest
+    try {
+      request = factory.open(DB_NAME, DB_VERSION)
+    } catch (err) {
+      reject(err)
+      return
+    }
+    request.onupgradeneeded = () => {
+      if (request.result && request.transaction) {
+        upgradeDb(request.result, request.transaction)
+      }
+    }
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error ?? new Error('Could not open local storage.'))
+    request.onblocked = () => {
+      console.warn('Database upgrade blocked — close other tabs of this app.')
+    }
+  })
+}
+
+function deleteWithFactory(factory: IDBFactory): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const request = factory.deleteDatabase(DB_NAME)
+      request.onsuccess = () => resolve()
+      request.onerror = () => resolve()
+      request.onblocked = () => resolve()
+    } catch {
+      resolve()
+    }
+  })
+}
+
+async function openFreshDb(): Promise<IDBDatabase> {
+  const factory = getIdbFactory()
+  if (!factory) throw new Error("Can't find variable: indexedDB")
+  return openWithFactory(factory)
+}
+
+async function getDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = openFreshDb().catch(async (err) => {
       console.warn('IndexedDB open failed, recreating database', err)
       dbPromise = null
-      try {
-        await deleteDB(DB_NAME)
-      } catch {
-        // ignore
-      }
+      const factory = getIdbFactory()
+      if (factory) await deleteWithFactory(factory)
       dbPromise = openFreshDb()
       return dbPromise
     })
@@ -127,23 +209,306 @@ function resetDbConnection() {
   dbPromise = null
 }
 
+async function storeGetAll(store: IDBObjectStore): Promise<StoredProduct[]> {
+  if (typeof store.getAll === 'function') {
+    return (await reqToPromise(store.getAll())) as StoredProduct[]
+  }
+  return new Promise((resolve, reject) => {
+    const out: StoredProduct[] = []
+    const cursorReq = store.openCursor()
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result
+      if (cursor) {
+        out.push(cursor.value as StoredProduct)
+        cursor.continue()
+      } else {
+        resolve(out)
+      }
+    }
+    cursorReq.onerror = () => reject(cursorReq.error ?? new Error('Read failed.'))
+  })
+}
+
+async function idbGetByProductNo(db: IDBDatabase, productNo: string): Promise<StoredProduct | undefined> {
+  const readAll = async () => {
+    const tx = db.transaction('products', 'readonly')
+    const all = await storeGetAll(tx.objectStore('products'))
+    await waitForTx(tx)
+    return all.find((p) => p.productNo === productNo)
+  }
+
+  try {
+    const tx = db.transaction('products', 'readonly')
+    const store = tx.objectStore('products')
+    if (!store.indexNames.contains('by-productNo')) {
+      const all = await storeGetAll(store)
+      await waitForTx(tx)
+      return all.find((p) => p.productNo === productNo)
+    }
+    const found = (await reqToPromise(store.index('by-productNo').get(productNo))) as
+      | StoredProduct
+      | undefined
+    await waitForTx(tx)
+    return found
+  } catch {
+    return readAll()
+  }
+}
+
+function bufferToB64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf)
+  const chunk = 0x2000
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
+function b64ToBuffer(b64: string): ArrayBuffer {
+  const binary = atob(b64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return bytes.buffer
+}
+
+function imageUrl(id: string, index: number): string {
+  return `https://bigbid.local/lot-image/${encodeURIComponent(id)}/${index}`
+}
+
+function readMeta(): FallbackRecord[] {
+  try {
+    const raw = localStorage.getItem(META_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as FallbackRecord[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writeMeta(list: FallbackRecord[]) {
+  localStorage.setItem(META_KEY, JSON.stringify(list))
+}
+
+async function saveFallbackImages(id: string, images: StoredImage[]): Promise<Pick<FallbackRecord, 'imageTypes' | 'imagesB64'>> {
+  const imageTypes = images.map((img) => img.type || 'image/jpeg')
+  const cachesApi = getCacheStorage()
+  if (cachesApi) {
+    try {
+      const cache = await cachesApi.open(IMAGE_CACHE)
+      await Promise.all(
+        images.map((img, i) =>
+          cache.put(
+            imageUrl(id, i),
+            new Response(img.data, { headers: { 'Content-Type': img.type || 'image/jpeg' } }),
+          ),
+        ),
+      )
+      return { imageTypes }
+    } catch (err) {
+      console.warn('Cache storage failed, using localStorage images', err)
+    }
+  }
+  return {
+    imageTypes,
+    imagesB64: images.map((img) => bufferToB64(img.data)),
+  }
+}
+
+async function loadFallbackImages(record: FallbackRecord): Promise<StoredImage[]> {
+  if (record.imagesB64?.length) {
+    return record.imagesB64.map((b64, i) => ({
+      type: record.imageTypes[i] || 'image/jpeg',
+      data: b64ToBuffer(b64),
+    }))
+  }
+  const cachesApi = getCacheStorage()
+  if (!cachesApi) return []
+  try {
+    const cache = await cachesApi.open(IMAGE_CACHE)
+    const images: StoredImage[] = []
+    for (let i = 0; i < record.imageTypes.length; i += 1) {
+      const res = await cache.match(imageUrl(record.id, i))
+      if (!res) continue
+      images.push({
+        type: record.imageTypes[i] || 'image/jpeg',
+        data: await res.arrayBuffer(),
+      })
+    }
+    return images
+  } catch {
+    return []
+  }
+}
+
+async function deleteFallbackImages(id: string, count: number) {
+  const cachesApi = getCacheStorage()
+  if (!cachesApi) return
+  try {
+    const cache = await cachesApi.open(IMAGE_CACHE)
+    await Promise.all(Array.from({ length: count }, (_, i) => cache.delete(imageUrl(id, i))))
+  } catch {
+    // ignore
+  }
+}
+
+async function fallbackHydrate(record: FallbackRecord): Promise<StoredProduct> {
+  const images = await loadFallbackImages(record)
+  return { ...record, images }
+}
+
+async function fallbackList(): Promise<StoredProduct[]> {
+  const records = readMeta()
+  return Promise.all(records.map((r) => fallbackHydrate(r)))
+}
+
+async function fallbackGet(id: string): Promise<StoredProduct | undefined> {
+  const record = readMeta().find((r) => r.id === id)
+  return record ? fallbackHydrate(record) : undefined
+}
+
+async function fallbackAdd(stored: StoredProduct): Promise<void> {
+  const list = readMeta()
+  if (list.some((r) => r.productNo === stored.productNo)) {
+    throw new Error(`Product number ${stored.productNo} already exists.`)
+  }
+  const images = stored.images ?? []
+  const imageFields = await saveFallbackImages(stored.id, images)
+  list.push({
+    id: stored.id,
+    productNo: stored.productNo,
+    sortNo: stored.sortNo,
+    name: stored.name,
+    description: stored.description,
+    salePrice: stored.salePrice,
+    bidPrice: stored.bidPrice,
+    createdAt: stored.createdAt,
+    updatedAt: stored.updatedAt,
+    ...imageFields,
+  })
+  writeMeta(list)
+}
+
+async function fallbackPut(stored: StoredProduct): Promise<void> {
+  const list = readMeta()
+  const idx = list.findIndex((r) => r.id === stored.id)
+  if (idx < 0) throw new Error('Product not found.')
+  const clash = list.find((r) => r.productNo === stored.productNo && r.id !== stored.id)
+  if (clash) throw new Error(`Product number ${stored.productNo} already exists.`)
+  await deleteFallbackImages(stored.id, list[idx].imageTypes.length)
+  const imageFields = await saveFallbackImages(stored.id, stored.images ?? [])
+  list[idx] = {
+    id: stored.id,
+    productNo: stored.productNo,
+    sortNo: stored.sortNo,
+    name: stored.name,
+    description: stored.description,
+    salePrice: stored.salePrice,
+    bidPrice: stored.bidPrice,
+    createdAt: stored.createdAt,
+    updatedAt: stored.updatedAt,
+    ...imageFields,
+  }
+  writeMeta(list)
+}
+
+async function fallbackDelete(id: string): Promise<void> {
+  const list = readMeta()
+  const found = list.find((r) => r.id === id)
+  if (found) await deleteFallbackImages(id, found.imageTypes.length)
+  writeMeta(list.filter((r) => r.id !== id))
+}
+
+async function fallbackDeleteMany(ids: string[]): Promise<void> {
+  const remove = new Set(ids)
+  const list = readMeta()
+  await Promise.all(
+    list.filter((r) => remove.has(r.id)).map((r) => deleteFallbackImages(r.id, r.imageTypes.length)),
+  )
+  writeMeta(list.filter((r) => !remove.has(r.id)))
+}
+
+async function fallbackClear(): Promise<void> {
+  const list = readMeta()
+  await Promise.all(list.map((r) => deleteFallbackImages(r.id, r.imageTypes.length)))
+  try {
+    localStorage.removeItem(META_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+async function runStore<T>(op: {
+  idb: () => Promise<T>
+  fallback: () => Promise<T>
+}): Promise<T> {
+  if (forceFallback || !getIdbFactory()) {
+    forceFallback = true
+    return op.fallback()
+  }
+  try {
+    return await op.idb()
+  } catch (err) {
+    if (!shouldUseFallback(err)) throw err
+    console.warn('IndexedDB unavailable, using local fallback', err)
+    forceFallback = true
+    resetDbConnection()
+    return op.fallback()
+  }
+}
+
 export async function listProducts(): Promise<Product[]> {
   try {
-    const db = await getDb()
-    const all = (await db.getAll('products')) as StoredProduct[]
-    return all
-      .map((p) => normalizeProduct(p))
-      .sort((a, b) => a.createdAt - b.createdAt)
+    const all = await runStore({
+      idb: async () => {
+        const db = await getDb()
+        const tx = db.transaction('products', 'readonly')
+        const allRows = await storeGetAll(tx.objectStore('products'))
+        await waitForTx(tx)
+        return allRows
+      },
+      fallback: fallbackList,
+    })
+    return all.map((p) => normalizeProduct(p)).sort((a, b) => a.createdAt - b.createdAt)
   } catch (err) {
     resetDbConnection()
+    if (shouldUseFallback(err)) {
+      forceFallback = true
+      const all = await fallbackList()
+      return all.map((p) => normalizeProduct(p)).sort((a, b) => a.createdAt - b.createdAt)
+    }
     throw new Error(idbErrorMessage(err))
   }
 }
 
 export async function getProduct(id: string): Promise<Product | undefined> {
-  const db = await getDb()
-  const raw = await db.get('products', id)
-  return raw ? normalizeProduct(raw as StoredProduct) : undefined
+  const raw = await runStore({
+    idb: async () => {
+      const db = await getDb()
+      const tx = db.transaction('products', 'readonly')
+      const value = (await reqToPromise(tx.objectStore('products').get(id))) as StoredProduct | undefined
+      await waitForTx(tx)
+      return value
+    },
+    fallback: () => fallbackGet(id),
+  })
+  return raw ? normalizeProduct(raw) : undefined
+}
+
+function buildStored(input: ProductInput, images: StoredImage[], id = newId(), createdAt = Date.now()): StoredProduct {
+  return {
+    id,
+    productNo: input.productNo,
+    sortNo: input.productNo,
+    name: input.name,
+    description: input.description,
+    salePrice: input.salePrice,
+    bidPrice: input.bidPrice,
+    images,
+    createdAt,
+    updatedAt: Date.now(),
+  }
 }
 
 export async function addProduct(input: ProductInput): Promise<Product> {
@@ -154,50 +519,28 @@ export async function addProduct(input: ProductInput): Promise<Product> {
     throw new Error('Maximum 10 photos per product.')
   }
 
-  try {
-    const db = await getDb()
-    const existing = await db.getFromIndex('products', 'by-productNo', input.productNo)
-    if (existing) {
-      throw new Error(`Product number ${input.productNo} already exists.`)
-    }
+  const images = await blobsToStored(input.imageBlobs)
+  const stored = buildStored(input, images)
 
-    const now = Date.now()
-    const images = await blobsToStored(input.imageBlobs)
-    const stored: StoredProduct = {
-      id: crypto.randomUUID(),
-      productNo: input.productNo,
-      sortNo: input.productNo,
-      name: input.name,
-      description: input.description,
-      salePrice: input.salePrice,
-      bidPrice: input.bidPrice,
-      images,
-      createdAt: now,
-      updatedAt: now,
-    }
-    await db.add('products', stored)
+  try {
+    await runStore({
+      idb: async () => {
+        const db = await getDb()
+        const existing = await idbGetByProductNo(db, input.productNo)
+        if (existing) throw new Error(`Product number ${input.productNo} already exists.`)
+        const tx = db.transaction('products', 'readwrite')
+        tx.objectStore('products').add(stored)
+        await waitForTx(tx)
+      },
+      fallback: () => fallbackAdd(stored),
+    })
     return normalizeProduct(stored)
   } catch (err) {
     if (err instanceof Error && err.message.includes('already exists')) throw err
     resetDbConnection()
-    // One retry after connection reset / recreate
     try {
-      const db = await getDb()
-      const images = await blobsToStored(input.imageBlobs)
-      const now = Date.now()
-      const stored: StoredProduct = {
-        id: crypto.randomUUID(),
-        productNo: input.productNo,
-        sortNo: input.productNo,
-        name: input.name,
-        description: input.description,
-        salePrice: input.salePrice,
-        bidPrice: input.bidPrice,
-        images,
-        createdAt: now,
-        updatedAt: now,
-      }
-      await db.add('products', stored)
+      forceFallback = true
+      await fallbackAdd(stored)
       return normalizeProduct(stored)
     } catch (err2) {
       throw new Error(idbErrorMessage(err2))
@@ -212,13 +555,30 @@ export async function updateProduct(
   },
 ): Promise<Product> {
   try {
-    const db = await getDb()
-    const existingRaw = (await db.get('products', id)) as StoredProduct | undefined
+    const existingRaw = await runStore({
+      idb: async () => {
+        const db = await getDb()
+        const tx = db.transaction('products', 'readonly')
+        const value = (await reqToPromise(tx.objectStore('products').get(id))) as StoredProduct | undefined
+        await waitForTx(tx)
+        return value
+      },
+      fallback: () => fallbackGet(id),
+    })
     if (!existingRaw) throw new Error('Product not found.')
     const existing = normalizeProduct(existingRaw)
     const productNo = patch.productNo ?? existing.productNo
     if (productNo !== existing.productNo) {
-      const clash = await db.getFromIndex('products', 'by-productNo', productNo)
+      const clash = await runStore({
+        idb: async () => {
+          const db = await getDb()
+          return idbGetByProductNo(db, productNo)
+        },
+        fallback: async () => {
+          const all = await fallbackList()
+          return all.find((p) => p.productNo === productNo)
+        },
+      })
       if (clash && clash.id !== id) {
         throw new Error(`Product number ${productNo} already exists.`)
       }
@@ -240,7 +600,16 @@ export async function updateProduct(
       createdAt: existing.createdAt,
       updatedAt: Date.now(),
     }
-    await db.put('products', stored)
+
+    await runStore({
+      idb: async () => {
+        const db = await getDb()
+        const tx = db.transaction('products', 'readwrite')
+        tx.objectStore('products').put(stored)
+        await waitForTx(tx)
+      },
+      fallback: () => fallbackPut(stored),
+    })
     return normalizeProduct(stored)
   } catch (err) {
     if (err instanceof Error && /already exists|not found/i.test(err.message)) throw err
@@ -249,25 +618,49 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const db = await getDb()
-  await db.delete('products', id)
+  await runStore({
+    idb: async () => {
+      const db = await getDb()
+      const tx = db.transaction('products', 'readwrite')
+      tx.objectStore('products').delete(id)
+      await waitForTx(tx)
+    },
+    fallback: () => fallbackDelete(id),
+  })
 }
 
 export async function deleteProducts(ids: string[]): Promise<void> {
-  const db = await getDb()
-  const tx = db.transaction('products', 'readwrite')
-  await Promise.all([...ids.map((id) => tx.store.delete(id)), tx.done])
+  await runStore({
+    idb: async () => {
+      const db = await getDb()
+      const tx = db.transaction('products', 'readwrite')
+      for (const id of ids) tx.objectStore('products').delete(id)
+      await waitForTx(tx)
+    },
+    fallback: () => fallbackDeleteMany(ids),
+  })
 }
 
 export async function clearAllProducts(): Promise<void> {
-  const db = await getDb()
-  await db.clear('products')
+  await runStore({
+    idb: async () => {
+      const db = await getDb()
+      const tx = db.transaction('products', 'readwrite')
+      tx.objectStore('products').clear()
+      await waitForTx(tx)
+    },
+    fallback: fallbackClear,
+  })
 }
 
 export async function estimateStorage(): Promise<{ usage: number; quota: number }> {
-  if (navigator.storage?.estimate) {
-    const { usage = 0, quota = 0 } = await navigator.storage.estimate()
-    return { usage, quota }
+  try {
+    if (navigator.storage?.estimate) {
+      const { usage = 0, quota = 0 } = await navigator.storage.estimate()
+      return { usage, quota }
+    }
+  } catch {
+    // ignore
   }
   return { usage: 0, quota: 0 }
 }
