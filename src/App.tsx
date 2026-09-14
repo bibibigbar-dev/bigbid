@@ -23,9 +23,7 @@ export default function App() {
   const [seller, setSeller] = useState<SellerSettings>(() => loadSellerSettings())
   const [products, setProducts] = useState<Product[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [mode, setMode] = useState<Mode>(() =>
-    loadPalletConfig() && loadSellerSettings().sellerCode ? 'list' : 'setup',
-  )
+  const [mode, setMode] = useState<Mode>(() => (loadPalletConfig() ? 'list' : 'setup'))
   const [editing, setEditing] = useState<Product | null>(null)
   const [nextNo, setNextNo] = useState('1')
   const [storageLabel, setStorageLabel] = useState('')
@@ -191,6 +189,7 @@ export default function App() {
         <CaptureFlow
           key={nextNo}
           productNo={nextNo}
+          saleOrder={pallet.nextNum.replace(/\D/g, '')}
           bidStrategy={seller.bidStrategy}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {

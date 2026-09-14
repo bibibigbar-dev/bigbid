@@ -79,11 +79,6 @@ export function PalletSetup({ initial, onConfirm }: Props) {
       setError('Enter starting digits.')
       return
     }
-    if (!sellerCode.trim()) {
-      setError('Enter a Seller Code, then tap Start session again.')
-      return
-    }
-
     setBusy(true)
     try {
       const config = buildPalletConfig({ numValue, numMode, alphaValue, alphaMode })

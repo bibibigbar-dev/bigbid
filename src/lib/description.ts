@@ -33,13 +33,10 @@ export function truncateTitle(text: string, max = HIBID_TITLE_MAX): string {
   return `${base.trimEnd()}…`
 }
 
-/**
- * Title = Retail/Reference price + product name, max 50 chars (HiBid limit).
- * e.g. "$79.99 Lasko Ceramic Tower Space Heater…"
- */
+/** Title = product name, with retail prefix only when retail > $100. */
 export function buildTitle(productName: string, retailPrice: number | null): string {
   const name = stripLeadingPrice(productName) || 'Untitled item'
-  if (retailPrice == null || !Number.isFinite(retailPrice)) {
+  if (retailPrice == null || !Number.isFinite(retailPrice) || retailPrice <= 100) {
     return truncateTitle(name)
   }
   const prefix = `$${formatSaleAmount(retailPrice)} `

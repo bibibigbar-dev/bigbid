@@ -45,19 +45,26 @@ function parseMoney(value: unknown): number | null {
   return null
 }
 
+function stripAppearsNewUnused(text: string): string {
+  return text
+    .replace(/\bappears\s+new,?\s*unused\b(?:["')\].,!?]*)\s*$/i, '')
+    .replace(/\s+\.$/, '.')
+    .trim()
+}
+
 function buildProductDescriptionBody(parsed: {
   productDescription?: string
   included?: string
   conditionNotes?: string
 }): string {
   const parts: string[] = []
-  const desc = (parsed.productDescription ?? '').trim()
+  const desc = stripAppearsNewUnused((parsed.productDescription ?? '').trim())
   if (desc) parts.push(desc)
 
-  const included = (parsed.included ?? '').trim()
+  const included = stripAppearsNewUnused((parsed.included ?? '').trim())
   if (included) parts.push(`Included: ${included}`)
 
-  const notes = (parsed.conditionNotes ?? '').trim()
+  const notes = stripAppearsNewUnused((parsed.conditionNotes ?? '').trim())
   if (notes) parts.push(notes)
 
   if (parts.length === 0) return ''

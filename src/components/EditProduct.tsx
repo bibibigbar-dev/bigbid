@@ -17,6 +17,7 @@ function parseMoney(value: string): number | null {
 }
 
 export function EditProduct({ product, onCancel, onSaved }: Props) {
+  const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description)
   const [salePrice, setSalePrice] = useState(
@@ -64,7 +65,7 @@ export function EditProduct({ product, onCancel, onSaved }: Props) {
     <section className="sheet">
       <h1>
         Edit {product.productNo}{' '}
-        <span className="muted">· Sale Order {product.productNo}</span>
+        <span className="muted">· Sale Order {saleOrder}</span>
       </h1>
       <form className="form" onSubmit={(e) => void handleSubmit(e)}>
         <div className="photo-grid compact">

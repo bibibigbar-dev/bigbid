@@ -58,6 +58,7 @@ function ProductRow({
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const cover = product.imageBlobs[0]
+  const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
 
   useEffect(() => {
     if (!cover) {
@@ -80,7 +81,7 @@ function ProductRow({
           <strong>
             #{product.productNo}{' '}
             <span className="muted">
-              Sale Order {product.productNo} · {product.imageBlobs.length} photo
+              Sale Order {saleOrder} · {product.imageBlobs.length} photo
               {product.imageBlobs.length === 1 ? '' : 's'}
             </span>
           </strong>
