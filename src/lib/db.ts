@@ -1,147 +1,251 @@
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
+import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Product, ProductInput } from '../types'
 
-type LegacyProduct = Omit<Product, 'imageBlobs' | 'sortNo'> & {
-  imageBlob?: Blob
+type StoredImage = { type: string; data: ArrayBuffer }
+
+type StoredProduct = Omit<Product, 'imageBlobs' | 'sortNo'> & {
+  sortNo: string
+  /** Preferred mobile-safe image storage */
+  images?: StoredImage[]
+  /** Legacy fields */
   imageBlobs?: Blob[]
-  sortNo?: string | number
+  imageBlob?: Blob
 }
 
 interface BigbidDB extends DBSchema {
   products: {
     key: string
-    value: Product
-    indexes: { 'by-created': number; 'by-productNo': string }
+    value: StoredProduct
+    indexes: { 'by-productNo': string }
   }
 }
 
 const DB_NAME = 'bigbid'
-const DB_VERSION = 3
+const DB_VERSION = 4
 
 let dbPromise: Promise<IDBPDatabase<BigbidDB>> | null = null
 
-function normalizeProduct(raw: LegacyProduct): Product {
-  const imageBlobs =
+async function blobsToStored(blobs: Blob[]): Promise<StoredImage[]> {
+  return Promise.all(
+    blobs.map(async (blob) => ({
+      type: blob.type || 'image/jpeg',
+      data: await blob.arrayBuffer(),
+    })),
+  )
+}
+
+function storedToBlobs(images: StoredImage[] | undefined, legacy?: Blob[]): Blob[] {
+  if (images && images.length > 0) {
+    return images.map((img) => new Blob([img.data], { type: img.type || 'image/jpeg' }))
+  }
+  return legacy ?? []
+}
+
+function normalizeProduct(raw: StoredProduct): Product {
+  const productNo = String(raw.productNo ?? '')
+  const legacyBlobs =
     raw.imageBlobs && raw.imageBlobs.length > 0
       ? raw.imageBlobs
       : raw.imageBlob
         ? [raw.imageBlob]
         : []
-  const productNo = String(raw.productNo ?? '')
   return {
     id: raw.id,
     productNo,
-    // Sale Order always matches Lot Number
     sortNo: productNo,
-    name: raw.name,
-    description: raw.description,
-    salePrice: raw.salePrice,
-    bidPrice: raw.bidPrice,
-    imageBlobs,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
+    name: raw.name ?? '',
+    description: raw.description ?? '',
+    salePrice: raw.salePrice ?? null,
+    bidPrice: raw.bidPrice ?? null,
+    imageBlobs: storedToBlobs(raw.images, legacyBlobs),
+    createdAt: raw.createdAt ?? Date.now(),
+    updatedAt: raw.updatedAt ?? Date.now(),
   }
 }
 
-function getDb() {
+function idbErrorMessage(err: unknown): string {
+  if (!(err instanceof Error)) return 'IndexedDB save failed.'
+  const name = (err as DOMException).name || err.name
+  if (name === 'QuotaExceededError') {
+    return 'Storage full. Delete some lots or free phone storage, then try again.'
+  }
+  if (name === 'ConstraintError') {
+    return 'This lot number already exists. Go back and capture again.'
+  }
+  if (name === 'VersionError' || name === 'InvalidStateError') {
+    return 'Local database needs reset. Refresh the page and try once more.'
+  }
+  return err.message || 'IndexedDB save failed.'
+}
+
+async function openFreshDb(): Promise<IDBPDatabase<BigbidDB>> {
+  return openDB<BigbidDB>(DB_NAME, DB_VERSION, {
+    upgrade(db, _oldVersion, _newVersion, transaction) {
+      if (!db.objectStoreNames.contains('products')) {
+        const store = db.createObjectStore('products', { keyPath: 'id' })
+        store.createIndex('by-productNo', 'productNo', { unique: true })
+        return
+      }
+
+      const store = transaction.objectStore('products')
+      // Drop legacy indexes that caused mobile upgrade issues
+      for (const name of ['by-sort', 'by-created']) {
+        try {
+          ;(store as unknown as { deleteIndex: (n: string) => void }).deleteIndex(name)
+        } catch {
+          // index may not exist
+        }
+      }
+      if (!store.indexNames.contains('by-productNo')) {
+        store.createIndex('by-productNo', 'productNo', { unique: true })
+      }
+    },
+    blocked() {
+      console.warn('IndexedDB upgrade blocked — close other tabs of this app.')
+    },
+  })
+}
+
+async function getDb(): Promise<IDBPDatabase<BigbidDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<BigbidDB>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion, _newVersion, transaction) {
-        if (oldVersion < 1) {
-          const store = db.createObjectStore('products', { keyPath: 'id' })
-          store.createIndex('by-created', 'createdAt')
-          store.createIndex('by-productNo', 'productNo', { unique: true })
-        }
-        if (oldVersion >= 1 && oldVersion < 3 && transaction) {
-          const store = transaction.objectStore('products')
-          try {
-            // Remove legacy numeric by-sort index (Sale Order is now productNo string)
-            ;(store as unknown as { deleteIndex: (name: string) => void }).deleteIndex('by-sort')
-          } catch {
-            // index may not exist
-          }
-          if (!store.indexNames.contains('by-created')) {
-            store.createIndex('by-created', 'createdAt')
-          }
-        }
-      },
+    dbPromise = openFreshDb().catch(async (err) => {
+      console.warn('IndexedDB open failed, recreating database', err)
+      dbPromise = null
+      try {
+        await deleteDB(DB_NAME)
+      } catch {
+        // ignore
+      }
+      dbPromise = openFreshDb()
+      return dbPromise
     })
   }
   return dbPromise
 }
 
+function resetDbConnection() {
+  dbPromise = null
+}
+
 export async function listProducts(): Promise<Product[]> {
-  const db = await getDb()
-  let all: LegacyProduct[]
   try {
-    all = (await db.getAllFromIndex('products', 'by-created')) as LegacyProduct[]
-  } catch {
-    all = (await db.getAll('products')) as LegacyProduct[]
-    all.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+    const db = await getDb()
+    const all = (await db.getAll('products')) as StoredProduct[]
+    return all
+      .map((p) => normalizeProduct(p))
+      .sort((a, b) => a.createdAt - b.createdAt)
+  } catch (err) {
+    resetDbConnection()
+    throw new Error(idbErrorMessage(err))
   }
-  return all.map((p) => normalizeProduct(p))
 }
 
 export async function getProduct(id: string): Promise<Product | undefined> {
   const db = await getDb()
   const raw = await db.get('products', id)
-  return raw ? normalizeProduct(raw as LegacyProduct) : undefined
+  return raw ? normalizeProduct(raw as StoredProduct) : undefined
 }
 
 export async function addProduct(input: ProductInput): Promise<Product> {
-  const db = await getDb()
-  const existing = await db.getFromIndex('products', 'by-productNo', input.productNo)
-  if (existing) {
-    throw new Error(`Product number ${input.productNo} already exists.`)
-  }
   if (!input.imageBlobs.length) {
     throw new Error('At least one photo is required.')
   }
   if (input.imageBlobs.length > 10) {
     throw new Error('Maximum 10 photos per product.')
   }
-  const now = Date.now()
-  const product: Product = {
-    id: crypto.randomUUID(),
-    productNo: input.productNo,
-    sortNo: input.productNo,
-    name: input.name,
-    description: input.description,
-    salePrice: input.salePrice,
-    bidPrice: input.bidPrice,
-    imageBlobs: input.imageBlobs,
-    createdAt: now,
-    updatedAt: now,
+
+  try {
+    const db = await getDb()
+    const existing = await db.getFromIndex('products', 'by-productNo', input.productNo)
+    if (existing) {
+      throw new Error(`Product number ${input.productNo} already exists.`)
+    }
+
+    const now = Date.now()
+    const images = await blobsToStored(input.imageBlobs)
+    const stored: StoredProduct = {
+      id: crypto.randomUUID(),
+      productNo: input.productNo,
+      sortNo: input.productNo,
+      name: input.name,
+      description: input.description,
+      salePrice: input.salePrice,
+      bidPrice: input.bidPrice,
+      images,
+      createdAt: now,
+      updatedAt: now,
+    }
+    await db.add('products', stored)
+    return normalizeProduct(stored)
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('already exists')) throw err
+    resetDbConnection()
+    // One retry after connection reset / recreate
+    try {
+      const db = await getDb()
+      const images = await blobsToStored(input.imageBlobs)
+      const now = Date.now()
+      const stored: StoredProduct = {
+        id: crypto.randomUUID(),
+        productNo: input.productNo,
+        sortNo: input.productNo,
+        name: input.name,
+        description: input.description,
+        salePrice: input.salePrice,
+        bidPrice: input.bidPrice,
+        images,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await db.add('products', stored)
+      return normalizeProduct(stored)
+    } catch (err2) {
+      throw new Error(idbErrorMessage(err2))
+    }
   }
-  await db.add('products', product)
-  return product
 }
 
 export async function updateProduct(
   id: string,
-  patch: Partial<Omit<Product, 'id' | 'createdAt'>>,
+  patch: Partial<Omit<Product, 'id' | 'createdAt' | 'imageBlobs'>> & {
+    imageBlobs?: Blob[]
+  },
 ): Promise<Product> {
-  const db = await getDb()
-  const existingRaw = await db.get('products', id)
-  if (!existingRaw) throw new Error('Product not found.')
-  const existing = normalizeProduct(existingRaw as LegacyProduct)
-  if (patch.productNo && patch.productNo !== existing.productNo) {
-    const clash = await db.getFromIndex('products', 'by-productNo', patch.productNo)
-    if (clash && clash.id !== id) {
-      throw new Error(`Product number ${patch.productNo} already exists.`)
+  try {
+    const db = await getDb()
+    const existingRaw = (await db.get('products', id)) as StoredProduct | undefined
+    if (!existingRaw) throw new Error('Product not found.')
+    const existing = normalizeProduct(existingRaw)
+    const productNo = patch.productNo ?? existing.productNo
+    if (productNo !== existing.productNo) {
+      const clash = await db.getFromIndex('products', 'by-productNo', productNo)
+      if (clash && clash.id !== id) {
+        throw new Error(`Product number ${productNo} already exists.`)
+      }
     }
+
+    const images = patch.imageBlobs
+      ? await blobsToStored(patch.imageBlobs)
+      : existingRaw.images ?? (await blobsToStored(existing.imageBlobs))
+
+    const stored: StoredProduct = {
+      id,
+      productNo,
+      sortNo: productNo,
+      name: patch.name ?? existing.name,
+      description: patch.description ?? existing.description,
+      salePrice: patch.salePrice !== undefined ? patch.salePrice : existing.salePrice,
+      bidPrice: patch.bidPrice !== undefined ? patch.bidPrice : existing.bidPrice,
+      images,
+      createdAt: existing.createdAt,
+      updatedAt: Date.now(),
+    }
+    await db.put('products', stored)
+    return normalizeProduct(stored)
+  } catch (err) {
+    if (err instanceof Error && /already exists|not found/i.test(err.message)) throw err
+    throw new Error(idbErrorMessage(err))
   }
-  const productNo = patch.productNo ?? existing.productNo
-  const updated: Product = {
-    ...existing,
-    ...patch,
-    productNo,
-    sortNo: productNo,
-    imageBlobs: patch.imageBlobs ?? existing.imageBlobs,
-    updatedAt: Date.now(),
-  }
-  await db.put('products', updated)
-  return updated
 }
 
 export async function deleteProduct(id: string): Promise<void> {
