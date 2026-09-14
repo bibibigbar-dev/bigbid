@@ -1,17 +1,33 @@
+import type { LotDescriptionSettings } from '../types'
+
 export const HIBID_TITLE_MAX = 50
 
-export const DEFAULT_HIBID_DESCRIPTION = [
-  'Condition: Open Box / Customer Return',
-  'Condition Notes:',
-  'Damage: No',
-  'Functional: Unable to Test',
-  'Missing Parts/Pieces: No',
-  'Packaging: Yes',
-  '',
-  'The item description below is copied and pasted from third-party retail websites. Any warranties, guarantees, or representations expressed in those descriptions do not apply and are not valid for this sale.',
-  '',
-  '*Description',
-].join('\n')
+export const DEFAULT_LOT_DESCRIPTION_SETTINGS: LotDescriptionSettings = {
+  condition: 'Open Box',
+  conditionNotes: '',
+  damage: 'No',
+  functional: 'Unable to Test',
+  missingParts: 'No',
+  packaging: 'Yes',
+  description: '',
+}
+
+export function buildDescriptionHeader(settings: LotDescriptionSettings): string {
+  return [
+    `Condition: ${settings.condition}`,
+    `Condition Notes: ${settings.conditionNotes.trim()}`,
+    `Damage: ${settings.damage}`,
+    `Functional: ${settings.functional}`,
+    `Missing Parts/Pieces: ${settings.missingParts}`,
+    `Packaging: ${settings.packaging}`,
+    '',
+    'The item description below is copied and pasted from third-party retail websites. Any warranties, guarantees, or representations expressed in those descriptions do not apply and are not valid for this sale.',
+    '',
+    '*Description',
+  ].join('\n')
+}
+
+export const DEFAULT_HIBID_DESCRIPTION = buildDescriptionHeader(DEFAULT_LOT_DESCRIPTION_SETTINGS)
 
 /** Format price like 399 or 79.99 (no trailing .00 when whole). */
 export function formatSaleAmount(salePrice: number): string {
@@ -54,8 +70,18 @@ export function buildTitle(productName: string, retailPrice: number | null): str
  * If detail is missing, use title.
  */
 export function buildHibidDescription(detail: string, fallbackTitle: string): string {
+  return buildHibidDescriptionWithSettings(detail, fallbackTitle)
+}
+
+export function buildHibidDescriptionWithSettings(
+  detail: string,
+  fallbackTitle: string,
+  settings: LotDescriptionSettings = DEFAULT_LOT_DESCRIPTION_SETTINGS,
+): string {
   const body = detail.trim() || fallbackTitle.trim() || 'Untitled item'
-  return `${DEFAULT_HIBID_DESCRIPTION}\n${body}`
+  const sharedDescription = settings.description.trim()
+  const descriptionBody = sharedDescription ? `${sharedDescription}\n\n${body}` : body
+  return `${buildDescriptionHeader(settings)}\n${descriptionBody}`
 }
 
 /** Pull only the free-text under *Description (or whole text if marker missing). */
@@ -71,12 +97,13 @@ export function normalizeLotContent(input: {
   title: string
   description: string
   salePrice: number | null
+  lotDescriptionSettings?: LotDescriptionSettings
 }): { title: string; description: string } {
   const title = buildTitle(input.title, input.salePrice)
   const detail = extractDescriptionBody(input.description)
   const body = detail && detail !== title ? detail : title
   return {
     title,
-    description: buildHibidDescription(body, title),
+    description: buildHibidDescriptionWithSettings(body, title, input.lotDescriptionSettings),
   }
 }

@@ -2,10 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PALLET_SOURCES,
   type BidStrategy,
+  type FunctionalStatus,
+  type LotCondition,
   type PalletConfig,
   type PalletSource,
   type PartMode,
   type SellerSettings,
+  type YesNo,
 } from '../types'
 import { buildPalletConfig, peekSequence } from '../lib/pallet'
 import { loadSellerSettings } from '../lib/seller'
@@ -55,6 +58,13 @@ export function PalletSetup({ initial, onConfirm }: Props) {
   const [bidStrategy, setBidStrategy] = useState<BidStrategy>(
     savedSeller.bidStrategy ?? 'recommended',
   )
+  const [condition, setCondition] = useState<LotCondition>(savedSeller.lotDescription.condition)
+  const [conditionNotes, setConditionNotes] = useState(savedSeller.lotDescription.conditionNotes)
+  const [damage, setDamage] = useState<YesNo>(savedSeller.lotDescription.damage)
+  const [functional, setFunctional] = useState<FunctionalStatus>(savedSeller.lotDescription.functional)
+  const [missingParts, setMissingParts] = useState<YesNo>(savedSeller.lotDescription.missingParts)
+  const [packaging, setPackaging] = useState<YesNo>(savedSeller.lotDescription.packaging)
+  const [description, setDescription] = useState(savedSeller.lotDescription.description)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -94,6 +104,15 @@ export function PalletSetup({ initial, onConfirm }: Props) {
         sellerCode: sellerCode.trim(),
         remember: rememberSeller,
         bidStrategy,
+        lotDescription: {
+          condition,
+          conditionNotes: conditionNotes.trim(),
+          damage,
+          functional,
+          missingParts,
+          packaging,
+          description: description.slice(0, 1000),
+        },
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Please check your settings.')
@@ -205,6 +224,82 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               onChange={(e) => setRememberSeller(e.target.checked)}
             />
             Remember Seller Code on this device
+          </label>
+        </div>
+
+        <div className="pallet-part">
+          <span className="field-label">Description</span>
+          <div className="field-row">
+            <label className="field">
+              <span>Condition</span>
+              <select
+                value={condition}
+                onChange={(e) => setCondition(e.target.value as LotCondition)}
+              >
+                <option value="New">New</option>
+                <option value="Open Box">Open Box</option>
+                <option value="Used">Used</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Damage</span>
+              <select value={damage} onChange={(e) => setDamage(e.target.value as YesNo)}>
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="field-row">
+            <label className="field">
+              <span>Functional</span>
+              <select
+                value={functional}
+                onChange={(e) => setFunctional(e.target.value as FunctionalStatus)}
+              >
+                <option value="Unable to Test">Unable to Test</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Missing Parts/Pieces</span>
+              <select
+                value={missingParts}
+                onChange={(e) => setMissingParts(e.target.value as YesNo)}
+              >
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="field-row">
+            <label className="field">
+              <span>Packaging</span>
+              <select value={packaging} onChange={(e) => setPackaging(e.target.value as YesNo)}>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Condition Notes</span>
+              <input
+                value={conditionNotes}
+                onChange={(e) => setConditionNotes(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
+          </div>
+
+          <label className="field">
+            <span>Description (shared, max 1000 chars)</span>
+            <textarea
+              rows={5}
+              maxLength={1000}
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
+            />
           </label>
         </div>
 

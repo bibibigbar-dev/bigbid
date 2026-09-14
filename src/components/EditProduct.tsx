@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { Product } from '../types'
+import type { LotDescriptionSettings, Product } from '../types'
 import { updateProduct } from '../lib/db'
 import { normalizeLotContent } from '../lib/description'
 
 type Props = {
   product: Product
+  lotDescriptionSettings: LotDescriptionSettings
   onCancel: () => void
   onSaved: () => Promise<void>
 }
@@ -16,7 +17,7 @@ function parseMoney(value: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function EditProduct({ product, onCancel, onSaved }: Props) {
+export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved }: Props) {
   const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description)
@@ -46,6 +47,7 @@ export function EditProduct({ product, onCancel, onSaved }: Props) {
         title: name.trim(),
         description: description.trim(),
         salePrice: parsedSale,
+        lotDescriptionSettings,
       })
       await updateProduct(product.id, {
         name: normalized.title,
