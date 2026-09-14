@@ -4,12 +4,7 @@ import { EditProduct } from './components/EditProduct'
 import { ExportBar } from './components/ExportBar'
 import { PalletSetup } from './components/PalletSetup'
 import { ProductList } from './components/ProductList'
-import {
-  addProduct,
-  estimateStorage,
-  getNextSortNo,
-  listProducts,
-} from './lib/db'
+import { addProduct, estimateStorage, listProducts } from './lib/db'
 import { formatBytes } from './lib/image'
 import {
   formatProductNo,
@@ -33,7 +28,6 @@ export default function App() {
   )
   const [editing, setEditing] = useState<Product | null>(null)
   const [nextNo, setNextNo] = useState('1')
-  const [nextSort, setNextSort] = useState(1)
   const [storageLabel, setStorageLabel] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -46,7 +40,6 @@ export default function App() {
       return new Set([...prev].filter((id) => ids.has(id)))
     })
     if (base) {
-      // Reuse deleted lot numbers: next = first gap from pallet start
       const synced = syncCursorToGaps(
         base,
         list.map((p) => p.productNo),
@@ -60,7 +53,6 @@ export default function App() {
       }
       setNextNo(formatProductNo(synced.nextNum, synced.nextAlpha))
     }
-    setNextSort(await getNextSortNo())
     const { usage, quota } = await estimateStorage()
     if (quota > 0) {
       setStorageLabel(`Storage ${formatBytes(usage)} / ${formatBytes(quota)}`)
@@ -77,7 +69,6 @@ export default function App() {
         setLoading(false)
       }
     })()
-    // Initial load only — avoid re-running when pallet updates (can stall mobile UI)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh])
 
@@ -114,7 +105,6 @@ export default function App() {
     setSeller(sellerSettings)
     setProducts(list)
     setNextNo(formatProductNo(synced.nextNum, synced.nextAlpha))
-    setNextSort(list.length === 0 ? 1 : Math.max(...list.map((p) => p.sortNo)) + 1)
     setLoading(false)
     setMode('list')
   }
@@ -145,7 +135,6 @@ export default function App() {
               className="btn primary capture"
               onClick={() => {
                 setNextNo(formatProductNo(pallet.nextNum, pallet.nextAlpha))
-                void getNextSortNo().then(setNextSort)
                 setMode('capture')
               }}
             >
@@ -202,7 +191,6 @@ export default function App() {
         <CaptureFlow
           key={nextNo}
           productNo={nextNo}
-          sortNo={nextSort}
           bidStrategy={seller.bidStrategy}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {

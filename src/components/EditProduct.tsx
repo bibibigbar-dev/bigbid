@@ -63,7 +63,8 @@ export function EditProduct({ product, onCancel, onSaved }: Props) {
   return (
     <section className="sheet">
       <h1>
-        Edit {product.productNo} <span className="muted">· sort {product.sortNo}</span>
+        Edit {product.productNo}{' '}
+        <span className="muted">· Sale Order {product.productNo}</span>
       </h1>
       <form className="form" onSubmit={(e) => void handleSubmit(e)}>
         <div className="photo-grid compact">

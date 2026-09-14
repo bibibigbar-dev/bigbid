@@ -80,7 +80,7 @@ function ProductRow({
           <strong>
             #{product.productNo}{' '}
             <span className="muted">
-              sort {product.sortNo} · {product.imageBlobs.length} photo
+              Sale Order {product.productNo} · {product.imageBlobs.length} photo
               {product.imageBlobs.length === 1 ? '' : 's'}
             </span>
           </strong>

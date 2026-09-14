@@ -19,13 +19,19 @@ function getApiKey(): string {
   return key.trim()
 }
 
+/** Convert image blob to a data URL without FileReader (some mobile WebViews lack it). */
 async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('Failed to read image.'))
-    reader.readAsDataURL(blob)
-  })
+  const buffer = await blob.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+  const base64 = btoa(binary)
+  const mime = blob.type || 'image/jpeg'
+  return `data:${mime};base64,${base64}`
 }
 
 function parseMoney(value: unknown): number | null {

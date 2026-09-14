@@ -13,12 +13,10 @@ type DraftFields = {
 
 type Props = {
   productNo: string
-  sortNo: number
   bidStrategy?: BidStrategy
   onCancel: () => void
   onSaved: (data: {
     productNo: string
-    sortNo: number
     name: string
     description: string
     salePrice: number | null
@@ -36,7 +34,6 @@ function parseMoney(value: string): number | null {
 
 export function CaptureFlow({
   productNo,
-  sortNo,
   bidStrategy = 'recommended',
   onCancel,
   onSaved,
@@ -130,7 +127,6 @@ export function CaptureFlow({
       })
       await onSaved({
         productNo,
-        sortNo,
         name: normalized.title,
         description: normalized.description,
         salePrice,
@@ -149,15 +145,13 @@ export function CaptureFlow({
 
   return (
     <section className="sheet">
-      <h1>
-        Lot {productNo} <span className="muted">· sort {sortNo}</span>
-      </h1>
+      <h1>Lot / Sale Order {productNo}</h1>
 
       {phase === 'shoot' && (
         <div className="form">
           <p className="muted">
             Take photos continuously (up to {MAX_PHOTOS_PER_PRODUCT}). After the first photo, a
-            Finish button appears. You can also attach images for testing.
+            Finish button appears.
           </p>
 
           <div className="capture-actions">

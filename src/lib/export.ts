@@ -18,7 +18,7 @@ export function buildLotsCsv(products: Product[], sellerCode: string): string {
   const rows = products.map((p) =>
     [
       csvEscape(p.productNo),
-      csvEscape(p.productNo), // Sale Order = Lot Number
+      csvEscape(p.sortNo), // same as Lot Number / productNo
       csvEscape(p.name),
       csvEscape(p.description),
       csvEscape(p.bidPrice ?? ''),

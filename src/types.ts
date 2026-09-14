@@ -23,7 +23,8 @@ export type SellerSettings = {
 export type Product = {
   id: string
   productNo: string
-  sortNo: number
+  /** Same as productNo (HiBid Sale Order = Lot Number) */
+  sortNo: string
   name: string
   description: string
   salePrice: number | null
@@ -35,7 +36,6 @@ export type Product = {
 
 export type ProductInput = {
   productNo: string
-  sortNo: number
   name: string
   description: string
   salePrice: number | null
