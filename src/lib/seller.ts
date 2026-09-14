@@ -27,12 +27,16 @@ export function loadSellerSettings(): SellerSettings {
 export function saveSellerSettings(settings: SellerSettings): void {
   const bidStrategy: BidStrategy =
     settings.bidStrategy === 'aggressive' ? 'aggressive' : 'recommended'
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      sellerCode: settings.remember ? settings.sellerCode.trim() : '',
-      remember: settings.remember,
-      bidStrategy,
-    }),
-  )
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        sellerCode: settings.remember ? settings.sellerCode.trim() : '',
+        remember: settings.remember,
+        bidStrategy,
+      }),
+    )
+  } catch {
+    // Private mode / blocked storage — keep session in memory only
+  }
 }

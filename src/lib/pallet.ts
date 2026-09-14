@@ -151,9 +151,17 @@ export function loadPalletConfig(): PalletConfig | null {
 }
 
 export function savePalletConfig(config: PalletConfig): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  } catch {
+    // Private mode / blocked storage — keep session in memory only
+  }
 }
 
 export function clearPalletConfig(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
 }

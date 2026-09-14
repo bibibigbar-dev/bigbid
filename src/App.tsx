@@ -72,14 +72,16 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       try {
-        await refresh(pallet)
+        await refresh(loadPalletConfig())
       } finally {
         setLoading(false)
       }
     })()
-  }, [refresh, pallet])
+    // Initial load only — avoid re-running when pallet updates (can stall mobile UI)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refresh])
 
-  function confirmSetup(config: PalletConfig, sellerSettings: SellerSettings) {
+  async function confirmSetup(config: PalletConfig, sellerSettings: SellerSettings) {
     const prev = pallet
     const unchanged =
       prev &&
@@ -93,19 +95,28 @@ export default function App() {
           palletId: prev.palletId || config.palletId,
         }
       : config
-    // Always align next lot to first free number (fills gaps after deletes)
-    void listProducts().then((list) => {
-      const synced = syncCursorToGaps(
-        merged,
-        list.map((p) => p.productNo),
-      )
-      savePalletConfig(synced)
-      saveSellerSettings(sellerSettings)
-      setPallet(synced)
-      setSeller(sellerSettings)
-      setNextNo(formatProductNo(synced.nextNum, synced.nextAlpha))
-      setMode('list')
-    })
+
+    let list: Product[] = []
+    try {
+      list = await listProducts()
+    } catch {
+      list = []
+    }
+
+    const synced = syncCursorToGaps(
+      merged,
+      list.map((p) => p.productNo),
+    )
+
+    savePalletConfig(synced)
+    saveSellerSettings(sellerSettings)
+    setPallet(synced)
+    setSeller(sellerSettings)
+    setProducts(list)
+    setNextNo(formatProductNo(synced.nextNum, synced.nextAlpha))
+    setNextSort(list.length === 0 ? 1 : Math.max(...list.map((p) => p.sortNo)) + 1)
+    setLoading(false)
+    setMode('list')
   }
 
   return (

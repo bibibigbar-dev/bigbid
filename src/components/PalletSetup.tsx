@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BidStrategy, PalletConfig, PartMode, SellerSettings } from '../types'
 import { buildPalletConfig, peekSequence } from '../lib/pallet'
 import { loadSellerSettings } from '../lib/seller'
 
 type Props = {
   initial?: PalletConfig | null
-  onConfirm: (config: PalletConfig, seller: SellerSettings) => void
+  onConfirm: (config: PalletConfig, seller: SellerSettings) => void | Promise<void>
 }
 
 function ModeToggle({
@@ -37,6 +37,7 @@ function ModeToggle({
 
 export function PalletSetup({ initial, onConfirm }: Props) {
   const savedSeller = loadSellerSettings()
+  const errorRef = useRef<HTMLParagraphElement>(null)
   const [numValue, setNumValue] = useState(initial?.numValue ?? '1')
   const [numMode, setNumMode] = useState<PartMode>(initial?.numMode ?? 'seq')
   const [alphaValue, setAlphaValue] = useState(initial?.alphaValue ?? '')
@@ -47,6 +48,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
     savedSeller.bidStrategy ?? 'recommended',
   )
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const preview = useMemo(() => {
     try {
@@ -65,22 +67,35 @@ export function PalletSetup({ initial, onConfirm }: Props) {
     }
   }, [numValue, numMode, alphaValue, alphaMode, initial])
 
-  function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [error])
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!sellerCode.trim()) {
-      setError('Enter a Seller Code.')
+
+    if (!numValue.trim()) {
+      setError('Enter starting digits.')
       return
     }
+    if (!sellerCode.trim()) {
+      setError('Enter a Seller Code, then tap Start session again.')
+      return
+    }
+
+    setBusy(true)
     try {
       const config = buildPalletConfig({ numValue, numMode, alphaValue, alphaMode })
-      onConfirm(config, {
+      await onConfirm(config, {
         sellerCode: sellerCode.trim(),
         remember: rememberSeller,
         bidStrategy,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Please check your settings.')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -91,7 +106,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
         Set pallet numbering, seller code, and which start-bid AI should use.
       </p>
 
-      <form className="form" onSubmit={handleSubmit}>
+      <form className="form" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <div className="pallet-part">
           <div className="pallet-part-head">
             <span>Digits</span>
@@ -105,7 +120,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               value={numValue}
               onChange={(e) => setNumValue(e.target.value.replace(/\D/g, '').slice(0, 5))}
               placeholder="e.g. 1"
-              required
+              autoComplete="off"
             />
           </label>
         </div>
@@ -124,6 +139,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
                 setAlphaValue(e.target.value.replace(/[^a-zA-Z]/g, '').slice(0, 5))
               }
               placeholder="e.g. b or ff"
+              autoComplete="off"
             />
           </label>
         </div>
@@ -160,7 +176,8 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               value={sellerCode}
               onChange={(e) => setSellerCode(e.target.value)}
               placeholder="e.g. 165dc277-b"
-              required
+              autoComplete="off"
+              enterKeyHint="done"
             />
           </label>
           <label className="check">
@@ -180,10 +197,14 @@ export function PalletSetup({ initial, onConfirm }: Props) {
           </div>
         )}
 
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <p ref={errorRef} className="error" role="alert">
+            {error}
+          </p>
+        )}
 
-        <button type="submit" className="btn primary capture">
-          Start session
+        <button type="submit" className="btn primary capture" disabled={busy}>
+          {busy ? 'Starting…' : 'Start session'}
         </button>
       </form>
     </section>
