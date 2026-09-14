@@ -13,12 +13,16 @@ function csvEscape(value: string | number | null | undefined): string {
   return s
 }
 
+function saleOrderOnlyDigits(value: string): string {
+  return value.replace(/\D/g, '')
+}
+
 export function buildLotsCsv(products: Product[], sellerCode: string): string {
   const header = 'Lot Number, Sale Order, Title, Description, Start Bid Each, Seller Code'
   const rows = products.map((p) =>
     [
       csvEscape(p.productNo),
-      csvEscape(p.sortNo), // same as Lot Number / productNo
+      csvEscape(saleOrderOnlyDigits(p.sortNo)),
       csvEscape(p.name),
       csvEscape(p.description),
       csvEscape(p.bidPrice ?? ''),
@@ -85,7 +89,7 @@ export async function shareOrEmailLotsCsv(
   saveAs(file, filename)
   const lines = products
     .slice(0, 30)
-    .map((p) => `${p.productNo}\t${p.productNo}\t${p.name}\t${p.bidPrice ?? ''}`)
+    .map((p) => `${p.productNo}\t${saleOrderOnlyDigits(p.sortNo)}\t${p.name}\t${p.bidPrice ?? ''}`)
   const body = [
     `CSV downloaded as ${filename}.`,
     'This browser cannot auto-attach files to email.',

@@ -50,14 +50,17 @@ function buildProductDescriptionBody(parsed: {
   included?: string
   conditionNotes?: string
 }): string {
+  const stripAppearsNewUnused = (text: string): string =>
+    text
+      .replace(/\bappears\s+new,?\s*unused\b[.!]?\s*$/i, '')
+      .replace(/\s+\.$/, '.')
+      .trim()
+
   const parts: string[] = []
-  const desc = (parsed.productDescription ?? '').trim()
+  const desc = stripAppearsNewUnused((parsed.productDescription ?? '').trim())
   if (desc) parts.push(desc)
 
-  const included = (parsed.included ?? '').trim()
-  if (included) parts.push(`Included: ${included}`)
-
-  const notes = (parsed.conditionNotes ?? '').trim()
+  const notes = stripAppearsNewUnused((parsed.conditionNotes ?? '').trim())
   if (notes) parts.push(notes)
 
   if (parts.length === 0) return ''

@@ -38,6 +38,7 @@ export function CaptureFlow({
   onCancel,
   onSaved,
 }: Props) {
+  const saleOrder = productNo.replace(/\D/g, '')
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])
@@ -145,7 +146,7 @@ export function CaptureFlow({
 
   return (
     <section className="sheet">
-      <h1>Lot / Sale Order {productNo}</h1>
+      <h1>Lot / Sale Order {saleOrder}</h1>
 
       {phase === 'shoot' && (
         <div className="form">
@@ -244,7 +245,7 @@ export function CaptureFlow({
           </div>
 
           <label className="field">
-            <span>Title (max 50 chars, Retail price + name)</span>
+            <span>Title (max 50 chars, retail shown only if over $100)</span>
             <input
               value={fields.name}
               maxLength={50}
