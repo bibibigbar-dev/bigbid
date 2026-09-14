@@ -58,7 +58,7 @@ function ProductRow({
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const cover = product.imageBlobs[0]
-  const saleOrder = product.sortNo.replace(/\D/g, '')
+  const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
 
   useEffect(() => {
     if (!cover) {

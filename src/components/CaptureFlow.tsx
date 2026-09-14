@@ -40,6 +40,7 @@ export function CaptureFlow({
   onCancel,
   onSaved,
 }: Props) {
+  const safeSaleOrder = saleOrder.trim() || '0'
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])
@@ -148,7 +149,7 @@ export function CaptureFlow({
   return (
     <section className="sheet">
       <h1>
-        Lot {productNo} <span className="muted">· Sale Order {saleOrder}</span>
+        Lot {productNo} <span className="muted">· Sale Order {safeSaleOrder}</span>
       </h1>
 
       {phase === 'shoot' && (

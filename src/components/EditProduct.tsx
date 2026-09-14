@@ -17,7 +17,7 @@ function parseMoney(value: string): number | null {
 }
 
 export function EditProduct({ product, onCancel, onSaved }: Props) {
-  const saleOrder = product.sortNo.replace(/\D/g, '')
+  const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description)
   const [salePrice, setSalePrice] = useState(

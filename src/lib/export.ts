@@ -14,7 +14,8 @@ function csvEscape(value: string | number | null | undefined): string {
 }
 
 function saleOrderOnlyDigits(value: string): string {
-  return value.replace(/\D/g, '')
+  const digits = value.replace(/\D/g, '')
+  return digits || '0'
 }
 
 export function buildLotsCsv(products: Product[], sellerCode: string): string {
