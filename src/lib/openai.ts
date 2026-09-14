@@ -100,10 +100,11 @@ function isAmazonImageUrl(value: string): boolean {
     const url = new URL(value)
     if (url.protocol !== 'https:') return false
     const host = url.hostname.toLowerCase()
+    const isDomainOrSubdomain = (domain: string) => host === domain || host.endsWith(`.${domain}`)
     return (
-      host.includes('amazon.') ||
-      host.endsWith('media-amazon.com') ||
-      host.endsWith('ssl-images-amazon.com')
+      /^([a-z0-9-]+\.)*amazon\.[a-z.]+$/.test(host) ||
+      isDomainOrSubdomain('media-amazon.com') ||
+      isDomainOrSubdomain('ssl-images-amazon.com')
     )
   } catch {
     return false
