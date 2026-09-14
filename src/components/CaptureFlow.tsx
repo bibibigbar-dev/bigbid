@@ -40,7 +40,7 @@ export function CaptureFlow({
   onCancel,
   onSaved,
 }: Props) {
-  const safeSaleOrder = saleOrder.trim() || '0'
+  const safeSaleOrder = saleOrder.replace(/\D/g, '') || '0'
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])

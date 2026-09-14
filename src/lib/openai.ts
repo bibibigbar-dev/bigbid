@@ -47,7 +47,7 @@ function parseMoney(value: unknown): number | null {
 
 function stripAppearsNewUnused(text: string): string {
   return text
-    .replace(/\bappears\s+new,?\s*unused\b[.!]?\s*$/i, '')
+    .replace(/\bappears\s+new,?\s*unused\b(?:["')\].,!?]*)\s*$/i, '')
     .replace(/\s+\.$/, '.')
     .trim()
 }
