@@ -1,4 +1,9 @@
-import type { LotDescriptionSettings } from '../types'
+import type {
+  FunctionalStatus,
+  LotCondition,
+  LotDescriptionSettings,
+  YesNo,
+} from '../types'
 
 export const HIBID_TITLE_MAX = 50
 
@@ -90,6 +95,62 @@ export function extractDescriptionBody(description: string): string {
   const idx = description.indexOf(marker)
   if (idx < 0) return description.trim()
   return description.slice(idx + marker.length).trim()
+}
+
+function pickEnum<T extends string>(value: string, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback
+}
+
+function getHeaderValue(description: string, label: string): string | null {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = description.match(new RegExp(`^${escaped}:\\s*(.*)$`, 'm'))
+  return match?.[1] ?? null
+}
+
+export function parseDescriptionForEditing(
+  description: string,
+  fallbackSettings: LotDescriptionSettings = DEFAULT_LOT_DESCRIPTION_SETTINGS,
+): { settings: LotDescriptionSettings; body: string } {
+  const condition = pickEnum<LotCondition>(
+    getHeaderValue(description, 'Condition')?.trim() ?? fallbackSettings.condition,
+    ['New', 'Open Box', 'Used'],
+    fallbackSettings.condition,
+  )
+  const damage = pickEnum<YesNo>(
+    getHeaderValue(description, 'Damage')?.trim() ?? fallbackSettings.damage,
+    ['Yes', 'No'],
+    fallbackSettings.damage,
+  )
+  const functional = pickEnum<FunctionalStatus>(
+    getHeaderValue(description, 'Functional')?.trim() ?? fallbackSettings.functional,
+    ['Yes', 'No', 'Unable to Test'],
+    fallbackSettings.functional,
+  )
+  const missingParts = pickEnum<YesNo>(
+    getHeaderValue(description, 'Missing Parts/Pieces')?.trim() ?? fallbackSettings.missingParts,
+    ['Yes', 'No'],
+    fallbackSettings.missingParts,
+  )
+  const packaging = pickEnum<YesNo>(
+    getHeaderValue(description, 'Packaging')?.trim() ?? fallbackSettings.packaging,
+    ['Yes', 'No'],
+    fallbackSettings.packaging,
+  )
+  const conditionNotes =
+    getHeaderValue(description, 'Condition Notes')?.trim() ?? fallbackSettings.conditionNotes
+
+  return {
+    settings: {
+      condition,
+      conditionNotes,
+      damage,
+      functional,
+      missingParts,
+      packaging,
+      description: fallbackSettings.description,
+    },
+    body: extractDescriptionBody(description),
+  }
 }
 
 /** Rebuild title + description into the required export format. */

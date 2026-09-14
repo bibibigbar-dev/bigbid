@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import {
   MAX_PHOTOS_PER_PRODUCT,
   type BidStrategy,
+  type FunctionalStatus,
+  type LotCondition,
   type LotDescriptionSettings,
   type PalletSource,
+  type YesNo,
 } from '../types'
 import { compressToJpeg } from '../lib/image'
 import { analyzeProductPhotos } from '../lib/openai'
-import { normalizeLotContent } from '../lib/description'
+import { normalizeLotContent, parseDescriptionForEditing } from '../lib/description'
 
 type DraftFields = {
   name: string
@@ -63,6 +66,7 @@ export function CaptureFlow({
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(lotDescriptionSettings)
 
   useEffect(() => {
     const urls = photos.map((b) => URL.createObjectURL(b))
@@ -112,12 +116,14 @@ export function CaptureFlow({
     setError('')
     try {
       const result = await analyzeProductPhotos(photos, { bidStrategy, source })
+      const parsed = parseDescriptionForEditing(result.description, lotDescriptionSettings)
       setFields({
         name: result.title,
-        description: result.description,
+        description: parsed.body,
         salePrice: result.salePrice != null ? String(result.salePrice) : '',
         bidPrice: result.bidPrice != null ? String(result.bidPrice) : '',
       })
+      setReviewSettings(parsed.settings)
       setPhase('review')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI analysis failed')
@@ -136,7 +142,7 @@ export function CaptureFlow({
         title: fields.name.trim(),
         description: fields.description.trim(),
         salePrice,
-        lotDescriptionSettings,
+        lotDescriptionSettings: reviewSettings,
       })
       await onSaved({
         productNo,
@@ -267,15 +273,123 @@ export function CaptureFlow({
             />
           </label>
 
-          <label className="field">
+          <div className="field">
             <span>Description</span>
-            <textarea
-              rows={8}
-              value={fields.description}
-              onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
-              required
-            />
-          </label>
+            <div className="field-row">
+              <label className="field">
+                <span>Condition</span>
+                <select
+                  value={reviewSettings.condition}
+                  onChange={(e) =>
+                    setReviewSettings((prev) => ({
+                      ...prev,
+                      condition: e.target.value as LotCondition,
+                    }))
+                  }
+                >
+                  <option value="New">New</option>
+                  <option value="Open Box">Open Box</option>
+                  <option value="Used">Used</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Damage</span>
+                <select
+                  value={reviewSettings.damage}
+                  onChange={(e) =>
+                    setReviewSettings((prev) => ({ ...prev, damage: e.target.value as YesNo }))
+                  }
+                >
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="field-row">
+              <label className="field">
+                <span>Functional</span>
+                <select
+                  value={reviewSettings.functional}
+                  onChange={(e) =>
+                    setReviewSettings((prev) => ({
+                      ...prev,
+                      functional: e.target.value as FunctionalStatus,
+                    }))
+                  }
+                >
+                  <option value="Unable to Test">Unable to Test</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Missing Parts/Pieces</span>
+                <select
+                  value={reviewSettings.missingParts}
+                  onChange={(e) =>
+                    setReviewSettings((prev) => ({
+                      ...prev,
+                      missingParts: e.target.value as YesNo,
+                    }))
+                  }
+                >
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="field-row">
+              <label className="field">
+                <span>Packaging</span>
+                <select
+                  value={reviewSettings.packaging}
+                  onChange={(e) =>
+                    setReviewSettings((prev) => ({ ...prev, packaging: e.target.value as YesNo }))
+                  }
+                >
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Condition Notes</span>
+                <input
+                  value={reviewSettings.conditionNotes}
+                  onChange={(e) =>
+                    setReviewSettings((prev) => ({ ...prev, conditionNotes: e.target.value }))
+                  }
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+
+            <label className="field">
+              <span>Description (shared, max 1000 chars)</span>
+              <textarea
+                rows={4}
+                maxLength={1000}
+                value={reviewSettings.description}
+                onChange={(e) =>
+                  setReviewSettings((prev) => ({
+                    ...prev,
+                    description: e.target.value.slice(0, 1000),
+                  }))
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Item Description</span>
+              <textarea
+                rows={8}
+                value={fields.description}
+                onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
+                required
+              />
+            </label>
+          </div>
 
           <div className="field-row">
             <label className="field">
