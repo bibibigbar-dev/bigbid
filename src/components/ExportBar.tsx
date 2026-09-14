@@ -14,6 +14,7 @@ type Props = {
   palletId: string
   sellerCode: string
   onChanged: () => Promise<void>
+  onStartOver: () => Promise<void>
 }
 
 export function ExportBar({
@@ -22,9 +23,11 @@ export function ExportBar({
   palletId,
   sellerCode,
   onChanged,
+  onStartOver,
 }: Props) {
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
+  const [confirmingStartOver, setConfirmingStartOver] = useState(false)
   const target =
     selectedIds.length > 0
       ? products.filter((p) => selectedIds.includes(p.id))
@@ -71,12 +74,24 @@ export function ExportBar({
     }
   }
 
+  async function handleStartOver() {
+    setBusy('start-over')
+    setMessage('')
+    setConfirmingStartOver(false)
+    try {
+      await onStartOver()
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Start over failed')
+      setBusy('')
+    }
+  }
+
   return (
     <section className="export-bar">
       <h2 className="export-title">Complete</h2>
       <p className="export-hint">
-        Exports as <strong>{palletId}_lots.csv</strong> and photo ZIP. On phone, Email/Share can
-        open Mail with the file attached. Fully automatic send needs a mail server later.
+        Exports as <strong>{palletId}_lots.csv</strong> and photo ZIP. On phone, Share Item List
+        .CSV can open Mail with the file attached. Fully automatic send needs a mail server later.
       </p>
       <div className="export-actions">
         <button
@@ -110,7 +125,7 @@ export function ExportBar({
             })()
           }
         >
-          {busy === 'mail' ? '…' : 'Email / Share CSV'}
+          {busy === 'mail' ? '…' : 'Share Item List .CSV'}
         </button>
         <button
           type="button"
@@ -122,15 +137,7 @@ export function ExportBar({
             })
           }
         >
-          {busy === 'csv' ? '…' : 'Download CSV'}
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={!!busy}
-          onClick={() => void run('zip', () => downloadPhotosZip(target, palletId))}
-        >
-          {busy === 'zip' ? '…' : 'Photos ZIP'}
+          {busy === 'csv' ? '…' : 'Download Item List .CSV'}
         </button>
         <button
           type="button"
@@ -143,7 +150,23 @@ export function ExportBar({
             })
           }
         >
-          {busy === 'share' ? '…' : 'Share ZIP'}
+          {busy === 'share' ? '…' : 'Share Photo .ZIP'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={!!busy}
+          onClick={() => void run('zip', () => downloadPhotosZip(target, palletId))}
+        >
+          {busy === 'zip' ? '…' : 'Download Photo .ZIP'}
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={!!busy}
+          onClick={() => setConfirmingStartOver(true)}
+        >
+          {busy === 'start-over' ? '…' : 'Start Over'}
         </button>
         <button
           type="button"
@@ -154,6 +177,40 @@ export function ExportBar({
           {busy === 'delete' ? '…' : 'Delete selected'}
         </button>
       </div>
+      {confirmingStartOver && (
+        <div className="confirm-backdrop" role="presentation">
+          <div
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="start-over-title"
+          >
+            <h3 id="start-over-title">Start over?</h3>
+            <p>
+              This will delete the current list and return to the first screen. Do you want to
+              continue?
+            </p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="btn danger"
+                disabled={!!busy}
+                onClick={() => void handleStartOver()}
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={!!busy}
+                onClick={() => setConfirmingStartOver(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {message && <p className="export-msg">{message}</p>}
     </section>
   )

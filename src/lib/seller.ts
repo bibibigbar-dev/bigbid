@@ -80,3 +80,11 @@ export function saveSellerSettings(settings: SellerSettings): void {
     // Private mode / blocked storage — keep session in memory only
   }
 }
+
+export function clearSellerSettings(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
