@@ -8,7 +8,8 @@ const DEFAULTS: SellerSettings = {
   sellerCode: '',
   remember: true,
   bidStrategy: 'recommended',
-  addAmazonReferencePhoto: true,
+  referencePhotoEnabled: true,
+  referencePhotoCount: 1,
   bidPriceSettings: DEFAULT_BID_PRICE_SETTINGS,
   lotDescription: DEFAULT_LOT_DESCRIPTION_SETTINGS,
 }
@@ -59,11 +60,21 @@ export function loadSellerSettings(): SellerSettings {
     if (!raw) return { ...DEFAULTS }
     const parsed = JSON.parse(raw) as Partial<SellerSettings>
     const strategy = parsed.bidStrategy
+    const legacyAddAmazonReferencePhoto = (parsed as { addAmazonReferencePhoto?: unknown })
+      .addAmazonReferencePhoto
+    const referencePhotoEnabled =
+      typeof parsed.referencePhotoEnabled === 'boolean'
+        ? parsed.referencePhotoEnabled
+        : legacyAddAmazonReferencePhoto !== false
+    const rawCount = Number(parsed.referencePhotoCount)
+    const referencePhotoCount: SellerSettings['referencePhotoCount'] =
+      rawCount === 2 || rawCount === 3 || rawCount === 4 ? rawCount : 1
     return {
       sellerCode: parsed.sellerCode ?? '',
       remember: parsed.remember ?? true,
       bidStrategy: strategy === 'aggressive' ? 'aggressive' : 'recommended',
-      addAmazonReferencePhoto: parsed.addAmazonReferencePhoto !== false,
+      referencePhotoEnabled,
+      referencePhotoCount,
       bidPriceSettings: normalizeBidPriceSettings(parsed.bidPriceSettings),
       lotDescription: parseLotDescription(parsed.lotDescription),
     }
@@ -83,7 +94,13 @@ export function saveSellerSettings(settings: SellerSettings): void {
         sellerCode: settings.remember ? settings.sellerCode.trim() : '',
         remember: settings.remember,
         bidStrategy,
-        addAmazonReferencePhoto: settings.addAmazonReferencePhoto !== false,
+        referencePhotoEnabled: settings.referencePhotoEnabled !== false,
+        referencePhotoCount:
+          settings.referencePhotoCount === 2 ||
+          settings.referencePhotoCount === 3 ||
+          settings.referencePhotoCount === 4
+            ? settings.referencePhotoCount
+            : 1,
         bidPriceSettings: normalizeBidPriceSettings(settings.bidPriceSettings),
         lotDescription: {
           ...normalizedLotDescription,

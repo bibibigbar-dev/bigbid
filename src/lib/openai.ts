@@ -13,7 +13,8 @@ export type AnalyzeResult = {
   /** Retail / Reference price — used in Title ($79.99 Name) */
   salePrice: number | null
   bidPrice: number | null
-  referenceImageBlob: Blob | null
+  referenceImageBlobs: Blob[]
+  referenceImageWarning: string | null
 }
 
 const NOT_FOUND_RESULT: AnalyzeResult = {
@@ -21,7 +22,8 @@ const NOT_FOUND_RESULT: AnalyzeResult = {
   description: DEFAULT_HIBID_DESCRIPTION,
   salePrice: null,
   bidPrice: null,
-  referenceImageBlob: null,
+  referenceImageBlobs: [],
+  referenceImageWarning: null,
 }
 
 function getApiKey(): string {
@@ -95,36 +97,92 @@ function extractResponseText(payload: unknown): string {
     .trim()
 }
 
-function isAmazonImageUrl(value: string): boolean {
+function isDomainOrSubdomain(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`)
+}
+
+type SourceValidationRule = {
+  productPage: RegExp
+  imageHosts: string[]
+}
+
+const SOURCE_VALIDATION: Record<PalletSource, SourceValidationRule> = {
+  amazon: {
+    productPage: /\/(dp|gp\/product)\/[a-z0-9]{10}(?:[/?]|$)/i,
+    imageHosts: ['m.media-amazon.com', 'media-amazon.com', 'ssl-images-amazon.com'],
+  },
+  target: {
+    productPage: /\/p\/.+/i,
+    imageHosts: ['target.scene7.com', 'target.com'],
+  },
+  walmart: {
+    productPage: /\/ip\/.+/i,
+    imageHosts: ['i5.walmartimages.com', 'walmartimages.com', 'walmart.com'],
+  },
+  lowes: {
+    productPage: /\/pd\/.+/i,
+    imageHosts: ['mobileimages.lowes.com', 'lowes.com'],
+  },
+  homedepot: {
+    productPage: /\/p\/.+/i,
+    imageHosts: ['images.thdstatic.com', 'homedepot-static.com', 'homedepot.com'],
+  },
+}
+
+function isAllowedImageUrl(value: string, source: PalletSource): boolean {
   try {
     const url = new URL(value)
     if (url.protocol !== 'https:') return false
     const host = url.hostname.toLowerCase()
-    const isDomainOrSubdomain = (domain: string) => host === domain || host.endsWith(`.${domain}`)
-    return (
-      /^([a-z0-9-]+\.)*amazon\.[a-z.]+$/.test(host) ||
-      isDomainOrSubdomain('media-amazon.com') ||
-      isDomainOrSubdomain('ssl-images-amazon.com')
-    )
+    const hosts = SOURCE_VALIDATION[source].imageHosts
+    return hosts.some((domain) => isDomainOrSubdomain(host, domain))
   } catch {
     return false
   }
 }
 
-function isAmazonProductPageUrl(value: string): boolean {
+function isValidProductPageUrl(value: string, source: PalletSource): boolean {
   try {
     const url = new URL(value)
     if (url.protocol !== 'https:') return false
     const host = url.hostname.toLowerCase()
-    if (!/^([a-z0-9-]+\.)*amazon\.[a-z.]+$/.test(host)) return false
-    const path = url.pathname.toLowerCase()
-    return /\/dp\/[a-z0-9]{10}(?:[/?]|$)/.test(path) || /\/gp\/product\/[a-z0-9]{10}(?:[/?]|$)/.test(path)
+    const hasSourceHost = isDomainOrSubdomain(host, `${source}.com`) || host.includes(source)
+    if (!hasSourceHost) return false
+    return SOURCE_VALIDATION[source].productPage.test(url.pathname.toLowerCase())
   } catch {
     return false
   }
 }
 
-async function findAmazonReferenceImage(productName: string, apiKey: string): Promise<Blob | null> {
+function parseReferenceSearchResult(raw: string): Array<{ pageUrl: string; imageUrl: string }> {
+  const parsed = parseJsonText<{
+    pageUrl?: unknown
+    imageUrl?: unknown
+    results?: Array<{ pageUrl?: unknown; imageUrl?: unknown }>
+  }>(raw)
+  if (!parsed) return []
+  const single =
+    typeof parsed.pageUrl === 'string' && typeof parsed.imageUrl === 'string'
+      ? [{ pageUrl: parsed.pageUrl, imageUrl: parsed.imageUrl }]
+      : []
+  const listed = Array.isArray(parsed.results)
+    ? parsed.results
+        .map((item) => ({
+          pageUrl: typeof item.pageUrl === 'string' ? item.pageUrl : '',
+          imageUrl: typeof item.imageUrl === 'string' ? item.imageUrl : '',
+        }))
+        .filter((item) => item.pageUrl && item.imageUrl)
+    : []
+  return [...single, ...listed]
+}
+
+async function findReferenceImages(
+  productName: string,
+  source: PalletSource,
+  count: number,
+  apiKey: string,
+): Promise<{ blobs: Blob[]; warning: string | null }> {
+  const sourceLabel = SOURCE_LABEL[source]
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -140,15 +198,16 @@ async function findAmazonReferenceImage(productName: string, apiKey: string): Pr
           content: [
             {
               type: 'input_text',
-              text: `Find the best matching Amazon product detail page for "${productName}" and return that page's single main hero image.
+              text: `Find up to ${count} best-matching ${sourceLabel} product detail pages for "${productName}" and return each page's main hero image.
 Return ONLY valid JSON with this shape:
-{"pageUrl":"https://...","imageUrl":"https://..."}
+{"results":[{"pageUrl":"https://...","imageUrl":"https://..."}]}
 
 Rules:
-- pageUrl must be the Amazon product detail page URL for the exact item, preferably a /dp/ASIN URL.
-- imageUrl must be the main/primary product image shown on that detail page, preferably hosted on m.media-amazon.com.
-- Return only one representative hero image, never thumbnails, collages, review photos, lifestyle alternates, or variation swatches.
-- If no reliable match is found, return {"pageUrl":null,"imageUrl":null}.`,
+- pageUrl must be a ${sourceLabel} product detail page URL for the exact item.
+- imageUrl must be the main/primary product image from that same page.
+- Return only hero images, never thumbnails, collages, review photos, lifestyle alternates, or variation swatches.
+- Return at most ${count} items in results.
+- If no reliable match is found, return {"results":[]}.`,
             },
           ],
         },
@@ -156,25 +215,55 @@ Rules:
     }),
   })
 
-  if (!res.ok) return null
+  if (!res.ok) {
+    return { blobs: [], warning: `${sourceLabel} reference photo search failed (${res.status}).` }
+  }
 
   const payload = (await res.json()) as unknown
   const raw = extractResponseText(payload)
-  if (!raw) return null
-
-  const parsed = parseJsonText<{ pageUrl?: unknown; imageUrl?: unknown }>(raw)
-  const pageUrl = typeof parsed?.pageUrl === 'string' ? parsed.pageUrl.trim() : ''
-  const imageUrl = typeof parsed?.imageUrl === 'string' ? parsed.imageUrl.trim() : ''
-  if (!pageUrl || !isAmazonProductPageUrl(pageUrl) || !imageUrl || !isAmazonImageUrl(imageUrl)) {
-    return null
+  if (!raw) {
+    return { blobs: [], warning: `${sourceLabel} reference photo search returned empty response.` }
   }
 
-  const imageRes = await fetch(imageUrl)
-  if (!imageRes.ok) return null
+  const candidates = parseReferenceSearchResult(raw)
+    .slice(0, count)
+    .filter(
+      (item) =>
+        isValidProductPageUrl(item.pageUrl, source) && isAllowedImageUrl(item.imageUrl, source),
+    )
+  if (!candidates.length) {
+    return {
+      blobs: [],
+      warning: `${sourceLabel} reference photo search found no valid product-image matches.`,
+    }
+  }
 
-  const blob = await imageRes.blob()
-  if (!blob.size) return null
-  return compressToJpeg(blob)
+  const blobs: Blob[] = []
+  for (const candidate of candidates) {
+    if (blobs.length >= count) break
+    try {
+      const imageRes = await fetch(candidate.imageUrl)
+      if (!imageRes.ok) continue
+      const blob = await imageRes.blob()
+      if (!blob.size) continue
+      blobs.push(await compressToJpeg(blob))
+    } catch {
+      continue
+    }
+  }
+  if (!blobs.length) {
+    return {
+      blobs: [],
+      warning: `${sourceLabel} images were found but blocked while downloading (CORS or retailer anti-bot).`,
+    }
+  }
+  return {
+    blobs,
+    warning:
+      blobs.length < count
+        ? `${sourceLabel} reference photos: ${blobs.length}/${count} added (some images could not be downloaded).`
+        : null,
+  }
 }
 
 function stripAppearsNewUnused(text: string): string {
@@ -273,7 +362,12 @@ Money fields must be numbers (not "$200"). Unknown → null. JSON only.`
 
 export async function analyzeProductPhotos(
   images: Blob[],
-  options?: { bidStrategy?: BidStrategy; source?: PalletSource; addAmazonReferencePhoto?: boolean },
+  options?: {
+    bidStrategy?: BidStrategy
+    source?: PalletSource
+    referencePhotoEnabled?: boolean
+    referencePhotoCount?: 1 | 2 | 3 | 4
+  },
 ): Promise<AnalyzeResult> {
   if (images.length === 0) throw new Error('No photos to analyze.')
   const apiKey = getApiKey()
@@ -363,12 +457,18 @@ export async function analyzeProductPhotos(
   if (!detail) return NOT_FOUND_RESULT
   const description = buildHibidDescription(detail, title)
 
-  let referenceImageBlob: Blob | null = null
-  if (source === 'amazon' && options?.addAmazonReferencePhoto !== false) {
+  let referenceImageBlobs: Blob[] = []
+  let referenceImageWarning: string | null = null
+  const referencePhotoEnabled = options?.referencePhotoEnabled !== false
+  const referencePhotoCount = options?.referencePhotoCount ?? 1
+  if (referencePhotoEnabled) {
     try {
-      referenceImageBlob = await findAmazonReferenceImage(productName, apiKey)
+      const result = await findReferenceImages(productName, source, referencePhotoCount, apiKey)
+      referenceImageBlobs = result.blobs
+      referenceImageWarning = result.warning
     } catch {
-      referenceImageBlob = null
+      referenceImageBlobs = []
+      referenceImageWarning = `${SOURCE_LABEL[source]} reference photo lookup failed.`
     }
   }
 
@@ -377,6 +477,7 @@ export async function analyzeProductPhotos(
     description,
     salePrice: retailPrice,
     bidPrice,
-    referenceImageBlob,
+    referenceImageBlobs,
+    referenceImageWarning,
   }
 }

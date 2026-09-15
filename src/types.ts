@@ -45,8 +45,10 @@ export type SellerSettings = {
   remember: boolean
   /** Which AI start-bid field to use. Default: recommended */
   bidStrategy: BidStrategy
-  /** When source is Amazon, attach one Amazon hero image automatically */
-  addAmazonReferencePhoto: boolean
+  /** Attach retailer reference product photos from selected Item Sourcing Site */
+  referencePhotoEnabled: boolean
+  /** Number of reference photos to attach from selected Item Sourcing Site */
+  referencePhotoCount: 1 | 2 | 3 | 4
   bidPriceSettings: BidPriceSettings
   lotDescription: LotDescriptionSettings
 }
@@ -82,4 +84,6 @@ export type ProductInput = {
 }
 
 export const MAX_CAPTURE_PHOTOS_PER_PRODUCT = 10
-export const MAX_PHOTOS_PER_PRODUCT = MAX_CAPTURE_PHOTOS_PER_PRODUCT + 1
+export const MAX_REFERENCE_PHOTOS_PER_PRODUCT = 4
+export const MAX_PHOTOS_PER_PRODUCT =
+  MAX_CAPTURE_PHOTOS_PER_PRODUCT + MAX_REFERENCE_PHOTOS_PER_PRODUCT
