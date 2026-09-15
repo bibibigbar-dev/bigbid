@@ -56,7 +56,7 @@ export type AiFillStatus = 'pending' | 'completed' | 'failed'
 export type Product = {
   id: string
   productNo: string
-  /** Same as productNo (HiBid Sale Order = Lot Number) */
+  /** HiBid Sale Order */
   sortNo: string
   name: string
   description: string
@@ -71,6 +71,7 @@ export type Product = {
 
 export type ProductInput = {
   productNo: string
+  sortNo: string
   name: string
   description: string
   salePrice: number | null

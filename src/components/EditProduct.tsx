@@ -19,8 +19,9 @@ function parseMoney(value: string): number | null {
 }
 
 export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved }: Props) {
-  const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
   const parsed = parseDescriptionForEditing(product.description, lotDescriptionSettings)
+  const [productNo, setProductNo] = useState(product.productNo)
+  const [saleOrder, setSaleOrder] = useState(product.sortNo.replace(/\D/g, ''))
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(parsed.body)
   const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(parsed.settings)
@@ -53,6 +54,8 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
         lotDescriptionSettings: reviewSettings,
       })
       await updateProduct(product.id, {
+        productNo,
+        sortNo: saleOrder,
         name: normalized.title,
         description: normalized.description,
         salePrice: parsedSale,
@@ -70,10 +73,12 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
 
   return (
     <section className="sheet">
-      <h1>Lot {product.productNo}</h1>
-      <p className="muted">Sale Order {saleOrder}</p>
+      <h1>Lot {productNo}</h1>
+      <p className="muted">Sale Order {saleOrder || '0'}</p>
       <LotReviewForm
         previews={previews}
+        productNo={productNo}
+        saleOrder={saleOrder}
         title={name}
         description={description}
         reviewSettings={reviewSettings}
@@ -83,6 +88,8 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
         error={error}
         secondaryLabel="Cancel"
         primaryLabel={busy ? 'Saving…' : 'Save lot'}
+        onProductNoChange={setProductNo}
+        onSaleOrderChange={setSaleOrder}
         onTitleChange={setName}
         onDescriptionChange={setDescription}
         onReviewSettingsChange={setReviewSettings}

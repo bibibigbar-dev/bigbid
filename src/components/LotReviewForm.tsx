@@ -8,6 +8,8 @@ import type {
 type Props = {
   previews: string[]
   referenceNote?: string
+  productNo: string
+  saleOrder: string
   title: string
   description: string
   reviewSettings: LotDescriptionSettings
@@ -17,6 +19,8 @@ type Props = {
   error: string
   secondaryLabel: string
   primaryLabel: string
+  onProductNoChange: (value: string) => void
+  onSaleOrderChange: (value: string) => void
   onTitleChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   onReviewSettingsChange: (value: LotDescriptionSettings) => void
@@ -29,6 +33,8 @@ type Props = {
 export function LotReviewForm({
   previews,
   referenceNote,
+  productNo,
+  saleOrder,
   title,
   description,
   reviewSettings,
@@ -38,6 +44,8 @@ export function LotReviewForm({
   error,
   secondaryLabel,
   primaryLabel,
+  onProductNoChange,
+  onSaleOrderChange,
   onTitleChange,
   onDescriptionChange,
   onReviewSettingsChange,
@@ -55,6 +63,22 @@ export function LotReviewForm({
       </div>
 
       {referenceNote && <p className="muted tiny">{referenceNote}</p>}
+
+      <div className="field-row">
+        <label className="field">
+          <span>Lot Number</span>
+          <input value={productNo} onChange={(e) => onProductNoChange(e.target.value)} required />
+        </label>
+        <label className="field">
+          <span>Sale Order</span>
+          <input
+            inputMode="numeric"
+            value={saleOrder}
+            onChange={(e) => onSaleOrderChange(e.target.value.replace(/\D/g, ''))}
+            required
+          />
+        </label>
+      </div>
 
       <label className="field">
         <span>Title (max 50 chars, retail shown only if over $100)</span>
