@@ -174,7 +174,7 @@ export default function App() {
           <p className="brand">bigbid</p>
           <p className="tagline">
             {mode === 'setup'
-              ? 'Pallet number + Seller Code'
+              ? 'AI inventory management system for smarter lot capture'
               : pallet
                 ? `Next lot ${formatProductNo(pallet.nextNum, pallet.nextAlpha)} · ${seller.bidStrategy} bid · ${seller.sellerCode || 'no seller'}`
                 : 'HiBid lot capture'}

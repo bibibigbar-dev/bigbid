@@ -142,7 +142,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
 
   return (
     <section className="pallet-setup">
-      <h1>Pallet setup</h1>
+      <h1>Setting</h1>
       <p className="muted setup-lead">
         Set pallet numbering, bid defaults, and which start-bid AI should use.
       </p>
@@ -150,7 +150,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
       <form className="form" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <div className="pallet-part">
           <label className="field">
-            <span>Pallet source site</span>
+            <span>Item Sourcing Site</span>
             <select value={source} onChange={(e) => setSource(e.target.value as PalletSource)}>
               {PALLET_SOURCES.map((value) => (
                 <option key={value} value={value}>
@@ -165,7 +165,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
 
         <div className="pallet-part">
           <div className="pallet-part-head">
-            <span>Digits</span>
+            <span>Lot Number Digits</span>
             <strong>Sequential</strong>
           </div>
           <label className="field">
@@ -183,7 +183,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
 
         <div className="pallet-part">
           <div className="pallet-part-head">
-            <span>Letters</span>
+            <span>Lot Number Letters</span>
             <strong>Fixed</strong>
           </div>
           <label className="field">
