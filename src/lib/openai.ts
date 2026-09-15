@@ -111,6 +111,19 @@ function isAmazonImageUrl(value: string): boolean {
   }
 }
 
+function isAmazonProductPageUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:') return false
+    const host = url.hostname.toLowerCase()
+    if (!/^([a-z0-9-]+\.)*amazon\.[a-z.]+$/.test(host)) return false
+    const path = url.pathname.toLowerCase()
+    return /\/dp\/[a-z0-9]{10}(?:[/?]|$)/.test(path) || /\/gp\/product\/[a-z0-9]{10}(?:[/?]|$)/.test(path)
+  } catch {
+    return false
+  }
+}
+
 async function findAmazonReferenceImage(productName: string, apiKey: string): Promise<Blob | null> {
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -127,14 +140,15 @@ async function findAmazonReferenceImage(productName: string, apiKey: string): Pr
           content: [
             {
               type: 'input_text',
-              text: `Find one Amazon-hosted product image URL for the exact product "${productName}".
+              text: `Find the best matching Amazon product detail page for "${productName}" and return that page's single main hero image.
 Return ONLY valid JSON with this shape:
-{"imageUrl":"https://..."}
+{"pageUrl":"https://...","imageUrl":"https://..."}
 
 Rules:
-- Use an Amazon-hosted product image URL, preferably m.media-amazon.com.
-- Prefer the main product image from an Amazon product result.
-- If no reliable Amazon image is found, return {"imageUrl":null}.`,
+- pageUrl must be the Amazon product detail page URL for the exact item, preferably a /dp/ASIN URL.
+- imageUrl must be the main/primary product image shown on that detail page, preferably hosted on m.media-amazon.com.
+- Return only one representative hero image, never thumbnails, collages, review photos, lifestyle alternates, or variation swatches.
+- If no reliable match is found, return {"pageUrl":null,"imageUrl":null}.`,
             },
           ],
         },
@@ -148,9 +162,12 @@ Rules:
   const raw = extractResponseText(payload)
   if (!raw) return null
 
-  const parsed = parseJsonText<{ imageUrl?: unknown }>(raw)
+  const parsed = parseJsonText<{ pageUrl?: unknown; imageUrl?: unknown }>(raw)
+  const pageUrl = typeof parsed?.pageUrl === 'string' ? parsed.pageUrl.trim() : ''
   const imageUrl = typeof parsed?.imageUrl === 'string' ? parsed.imageUrl.trim() : ''
-  if (!imageUrl || !isAmazonImageUrl(imageUrl)) return null
+  if (!pageUrl || !isAmazonProductPageUrl(pageUrl) || !imageUrl || !isAmazonImageUrl(imageUrl)) {
+    return null
+  }
 
   const imageRes = await fetch(imageUrl)
   if (!imageRes.ok) return null

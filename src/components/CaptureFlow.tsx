@@ -165,7 +165,7 @@ export function CaptureFlow({
         description: normalized.description,
         salePrice,
         bidPrice: parseMoney(fields.bidPrice),
-        imageBlobs: referenceImageBlob ? [...photos, referenceImageBlob] : photos,
+        imageBlobs: referenceImageBlob ? [referenceImageBlob, ...photos] : photos,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -176,7 +176,7 @@ export function CaptureFlow({
 
   const canAddMore = photos.length < MAX_CAPTURE_PHOTOS_PER_PRODUCT
   const hasPhotos = photos.length > 0
-  const reviewPreviews = referencePreview ? [...previews, referencePreview] : previews
+  const reviewPreviews = referencePreview ? [referencePreview, ...previews] : previews
 
   return (
     <section className="sheet">
@@ -280,7 +280,7 @@ export function CaptureFlow({
           </div>
 
           {referencePreview && (
-            <p className="muted tiny">Amazon reference photo was added as the last image.</p>
+            <p className="muted tiny">Amazon reference photo was added as the first image.</p>
           )}
 
           <label className="field">
