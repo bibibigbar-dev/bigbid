@@ -57,6 +57,8 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
         description: normalized.description,
         salePrice: parsedSale,
         bidPrice: parseMoney(bidPrice),
+        aiFillStatus: 'completed',
+        aiFillError: null,
       })
       await onSaved()
     } catch (err) {

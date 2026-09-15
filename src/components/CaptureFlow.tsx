@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_CAPTURE_PHOTOS_PER_PRODUCT,
   MAX_PHOTOS_PER_PRODUCT,
+  type AiFillStatus,
   type BidStrategy,
   type BidPriceSettings,
   type LotDescriptionSettings,
@@ -10,7 +11,11 @@ import {
 import { compressToJpeg } from '../lib/image'
 import { analyzeProductPhotos } from '../lib/openai'
 import { bidPriceFromRetail } from '../lib/bid'
-import { normalizeLotContent, parseDescriptionForEditing } from '../lib/description'
+import {
+  DEFAULT_HIBID_DESCRIPTION,
+  normalizeLotContent,
+  parseDescriptionForEditing,
+} from '../lib/description'
 import { LotReviewForm } from './LotReviewForm'
 
 type DraftFields = {
@@ -23,6 +28,7 @@ type DraftFields = {
 type Props = {
   productNo: string
   saleOrder: string
+  captureMode: 'manual' | 'background'
   bidStrategy?: BidStrategy
   bidPriceSettings: BidPriceSettings
   source: PalletSource
@@ -35,6 +41,8 @@ type Props = {
     salePrice: number | null
     bidPrice: number | null
     imageBlobs: Blob[]
+    aiFillStatus?: AiFillStatus
+    aiFillError?: string | null
   }) => Promise<void>
 }
 
@@ -48,6 +56,7 @@ function parseMoney(value: string): number | null {
 export function CaptureFlow({
   productNo,
   saleOrder,
+  captureMode,
   bidStrategy = 'recommended',
   bidPriceSettings,
   source,
@@ -178,6 +187,31 @@ export function CaptureFlow({
     }
   }
 
+  async function handleSaveAndContinue() {
+    if (!photos.length) {
+      setError('Take at least one photo.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      await onSaved({
+        productNo,
+        name: '?',
+        description: DEFAULT_HIBID_DESCRIPTION,
+        salePrice: null,
+        bidPrice: null,
+        imageBlobs: photos,
+        aiFillStatus: 'pending',
+        aiFillError: null,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const canAddMore = photos.length < MAX_CAPTURE_PHOTOS_PER_PRODUCT
   const hasPhotos = photos.length > 0
   const reviewPreviews = referencePreview ? [referencePreview, ...previews] : previews
@@ -190,8 +224,9 @@ export function CaptureFlow({
       {phase === 'shoot' && (
         <div className="form">
           <p className="muted">
-            Take photos continuously (up to {MAX_CAPTURE_PHOTOS_PER_PRODUCT}). After the first
-            photo, a Finish button appears.
+            {captureMode === 'background'
+              ? `Take photos continuously (up to ${MAX_CAPTURE_PHOTOS_PER_PRODUCT}). Save this lot, move to the next one, and let AI fill run in the background.`
+              : `Take photos continuously (up to ${MAX_CAPTURE_PHOTOS_PER_PRODUCT}). After the first photo, a Finish button appears.`}
           </p>
 
           <div className="capture-actions">
@@ -262,14 +297,34 @@ export function CaptureFlow({
               Cancel
             </button>
             {hasPhotos && (
-              <button
-                type="button"
-                className="btn primary"
-                onClick={() => void finishCapture()}
-                disabled={busy}
-              >
-                {busy ? 'Analyzing…' : `Finish (${photos.length}) · AI fill`}
-              </button>
+              <>
+                {captureMode === 'background' && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => void finishCapture()}
+                    disabled={busy}
+                  >
+                    {busy ? 'Analyzing…' : 'Review this lot'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() =>
+                    void (captureMode === 'background' ? handleSaveAndContinue() : finishCapture())
+                  }
+                  disabled={busy}
+                >
+                  {busy
+                    ? captureMode === 'background'
+                      ? 'Saving…'
+                      : 'Analyzing…'
+                    : captureMode === 'background'
+                      ? `Save & next lot (${photos.length})`
+                      : `Finish (${photos.length}) · AI fill`}
+                </button>
+              </>
             )}
           </div>
         </div>

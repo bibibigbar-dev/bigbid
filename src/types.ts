@@ -49,6 +49,8 @@ export type SellerSettings = {
   lotDescription: LotDescriptionSettings
 }
 
+export type AiFillStatus = 'pending' | 'completed' | 'failed'
+
 export type Product = {
   id: string
   productNo: string
@@ -59,6 +61,8 @@ export type Product = {
   salePrice: number | null
   bidPrice: number | null
   imageBlobs: Blob[]
+  aiFillStatus: AiFillStatus
+  aiFillError: string | null
   createdAt: number
   updatedAt: number
 }
@@ -70,6 +74,8 @@ export type ProductInput = {
   salePrice: number | null
   bidPrice: number | null
   imageBlobs: Blob[]
+  aiFillStatus?: AiFillStatus
+  aiFillError?: string | null
 }
 
 export const MAX_CAPTURE_PHOTOS_PER_PRODUCT = 10
