@@ -59,6 +59,8 @@ function ProductRow({
   const [url, setUrl] = useState<string | null>(null)
   const cover = product.imageBlobs[0]
   const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
+  const aiPending = product.aiFillStatus === 'pending'
+  const aiFailed = product.aiFillStatus === 'failed'
 
   useEffect(() => {
     if (!cover) {
@@ -75,7 +77,7 @@ function ProductRow({
       <label className="check shrink">
         <input type="checkbox" checked={checked} onChange={onToggle} />
       </label>
-      <button type="button" className="product-main" onClick={onEdit}>
+      <button type="button" className="product-main" onClick={onEdit} disabled={aiPending}>
         {url && <img src={url} alt="" className="thumb" />}
         <div className="meta">
           <strong>
@@ -87,7 +89,11 @@ function ProductRow({
           </strong>
           <span>{product.name || '(untitled)'}</span>
           <span className="muted prices">
-            retail {product.salePrice ?? '—'} · bid {product.bidPrice ?? '—'}
+            {aiPending
+              ? 'AI fill running in background…'
+              : aiFailed
+                ? 'AI fill failed · open lot to finish manually'
+                : `retail ${product.salePrice ?? '—'} · bid ${product.bidPrice ?? '—'}`}
           </span>
         </div>
       </button>

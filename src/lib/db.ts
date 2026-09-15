@@ -111,6 +111,11 @@ function normalizeProduct(raw: StoredProduct): Product {
     salePrice: raw.salePrice ?? null,
     bidPrice: raw.bidPrice ?? null,
     imageBlobs: storedToBlobs(raw.images, legacyBlobs),
+    aiFillStatus:
+      raw.aiFillStatus === 'pending' || raw.aiFillStatus === 'failed'
+        ? raw.aiFillStatus
+        : 'completed',
+    aiFillError: typeof raw.aiFillError === 'string' ? raw.aiFillError : null,
     createdAt: raw.createdAt ?? Date.now(),
     updatedAt: raw.updatedAt ?? Date.now(),
   }
@@ -383,6 +388,8 @@ async function fallbackAdd(stored: StoredProduct): Promise<void> {
     description: stored.description,
     salePrice: stored.salePrice,
     bidPrice: stored.bidPrice,
+    aiFillStatus: stored.aiFillStatus,
+    aiFillError: stored.aiFillError,
     createdAt: stored.createdAt,
     updatedAt: stored.updatedAt,
     ...imageFields,
@@ -406,6 +413,8 @@ async function fallbackPut(stored: StoredProduct): Promise<void> {
     description: stored.description,
     salePrice: stored.salePrice,
     bidPrice: stored.bidPrice,
+    aiFillStatus: stored.aiFillStatus,
+    aiFillError: stored.aiFillError,
     createdAt: stored.createdAt,
     updatedAt: stored.updatedAt,
     ...imageFields,
@@ -506,6 +515,8 @@ function buildStored(input: ProductInput, images: StoredImage[], id = newId(), c
     salePrice: input.salePrice,
     bidPrice: input.bidPrice,
     images,
+    aiFillStatus: input.aiFillStatus ?? 'completed',
+    aiFillError: input.aiFillError ?? null,
     createdAt,
     updatedAt: Date.now(),
   }
@@ -600,6 +611,8 @@ export async function updateProduct(
       salePrice: patch.salePrice !== undefined ? patch.salePrice : existing.salePrice,
       bidPrice: patch.bidPrice !== undefined ? patch.bidPrice : existing.bidPrice,
       images,
+      aiFillStatus: patch.aiFillStatus ?? existing.aiFillStatus,
+      aiFillError: patch.aiFillError !== undefined ? patch.aiFillError : existing.aiFillError,
       createdAt: existing.createdAt,
       updatedAt: Date.now(),
     }

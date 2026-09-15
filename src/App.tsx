@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CaptureFlow } from './components/CaptureFlow'
 import { EditProduct } from './components/EditProduct'
 import { ExportBar } from './components/ExportBar'
 import { PalletSetup } from './components/PalletSetup'
 import { ProductList } from './components/ProductList'
-import { addProduct, clearAllProducts, estimateStorage, listProducts } from './lib/db'
+import { bidPriceFromRetail } from './lib/bid'
+import { normalizeLotContent, parseDescriptionForEditing } from './lib/description'
+import {
+  addProduct,
+  clearAllProducts,
+  estimateStorage,
+  listProducts,
+  updateProduct,
+} from './lib/db'
 import { formatBytes } from './lib/image'
+import { analyzeProductPhotos } from './lib/openai'
 import {
   formatProductNo,
   clearPalletConfig,
@@ -18,10 +27,12 @@ import {
   loadSellerSettings,
   saveSellerSettings,
 } from './lib/seller'
+import { MAX_PHOTOS_PER_PRODUCT } from './types'
 import type { PalletConfig, Product, SellerSettings } from './types'
 import './App.css'
 
 type Mode = 'setup' | 'list' | 'capture' | 'edit'
+type CaptureMode = 'manual' | 'background'
 
 export default function App() {
   const [pallet, setPallet] = useState<PalletConfig | null>(() => loadPalletConfig())
@@ -33,6 +44,8 @@ export default function App() {
   const [nextNo, setNextNo] = useState('1')
   const [storageLabel, setStorageLabel] = useState('')
   const [loading, setLoading] = useState(true)
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('manual')
+  const aiQueueRef = useRef<Set<string>>(new Set())
 
   const refresh = useCallback(async (config?: PalletConfig | null) => {
     const base = config ?? loadPalletConfig()
@@ -74,6 +87,48 @@ export default function App() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh])
+
+  const queueAiFill = useCallback(
+    async (product: Product) => {
+      if (aiQueueRef.current.has(product.id)) return
+      aiQueueRef.current.add(product.id)
+      try {
+        const result = await analyzeProductPhotos(product.imageBlobs, {
+          bidStrategy: seller.bidStrategy,
+          source: pallet?.source,
+        })
+        const parsed = parseDescriptionForEditing(result.description, seller.lotDescription)
+        const salePrice = result.salePrice
+        const normalized = normalizeLotContent({
+          title: result.title,
+          description: parsed.body,
+          salePrice,
+          lotDescriptionSettings: parsed.settings,
+        })
+        await updateProduct(product.id, {
+          name: normalized.title,
+          description: normalized.description,
+          salePrice,
+          bidPrice: bidPriceFromRetail(salePrice, seller.bidPriceSettings) ?? result.bidPrice,
+          imageBlobs:
+            result.referenceImageBlob && product.imageBlobs.length < MAX_PHOTOS_PER_PRODUCT
+              ? [result.referenceImageBlob, ...product.imageBlobs]
+              : product.imageBlobs,
+          aiFillStatus: 'completed',
+          aiFillError: null,
+        })
+      } catch (err) {
+        await updateProduct(product.id, {
+          aiFillStatus: 'failed',
+          aiFillError: err instanceof Error ? err.message : 'AI fill failed',
+        })
+      } finally {
+        aiQueueRef.current.delete(product.id)
+        await refresh(loadPalletConfig())
+      }
+    },
+    [pallet?.source, refresh, seller.bidPriceSettings, seller.bidStrategy, seller.lotDescription],
+  )
 
   async function confirmSetup(config: PalletConfig, sellerSettings: SellerSettings) {
     const prev = pallet
@@ -135,8 +190,21 @@ export default function App() {
           <div className="hero-actions">
             <button
               type="button"
+              className="btn capture"
+              onClick={() => {
+                setCaptureMode('background')
+                setNextNo(formatProductNo(pallet.nextNum, pallet.nextAlpha))
+                setMode('capture')
+              }}
+            >
+              Continue next lot
+              <span className="btn-sub">Photos only · AI fills in background</span>
+            </button>
+            <button
+              type="button"
               className="btn primary capture"
               onClick={() => {
+                setCaptureMode('manual')
                 setNextNo(formatProductNo(pallet.nextNum, pallet.nextAlpha))
                 setMode('capture')
               }}
@@ -208,13 +276,17 @@ export default function App() {
           key={nextNo}
           productNo={nextNo}
           saleOrder={pallet.nextNum.replace(/\D/g, '')}
+          captureMode={captureMode}
           bidStrategy={seller.bidStrategy}
           bidPriceSettings={seller.bidPriceSettings}
           source={pallet.source}
           lotDescriptionSettings={seller.lotDescription}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {
-            await addProduct(data)
+            const saved = await addProduct(data)
+            if (data.aiFillStatus === 'pending') {
+              void queueAiFill(saved)
+            }
             const list = await listProducts()
             const synced = syncCursorToGaps(
               pallet,
