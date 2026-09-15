@@ -37,8 +37,15 @@ export function PalletSetup({ initial, onConfirm }: Props) {
   const [bidStrategy, setBidStrategy] = useState<BidStrategy>(
     savedSeller.bidStrategy ?? 'recommended',
   )
-  const [addAmazonReferencePhoto, setAddAmazonReferencePhoto] = useState(
-    savedSeller.addAmazonReferencePhoto !== false,
+  const [referencePhotoEnabled, setReferencePhotoEnabled] = useState(
+    savedSeller.referencePhotoEnabled !== false,
+  )
+  const [referencePhotoCount, setReferencePhotoCount] = useState<1 | 2 | 3 | 4>(
+    savedSeller.referencePhotoCount === 2 ||
+      savedSeller.referencePhotoCount === 3 ||
+      savedSeller.referencePhotoCount === 4
+      ? savedSeller.referencePhotoCount
+      : 1,
   )
   const [condition, setCondition] = useState<LotCondition>(savedSeller.lotDescription.condition)
   const [conditionNotes, setConditionNotes] = useState(savedSeller.lotDescription.conditionNotes)
@@ -125,7 +132,8 @@ export function PalletSetup({ initial, onConfirm }: Props) {
         sellerCode: sellerCode.trim(),
         remember: rememberSeller,
         bidStrategy,
-        addAmazonReferencePhoto,
+        referencePhotoEnabled,
+        referencePhotoCount,
         bidPriceSettings,
         lotDescription: {
           condition,
@@ -227,14 +235,39 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               ? 'Uses AI recommended auction start bid (default), e.g. $10'
               : 'Uses AI aggressive start bid, e.g. $5'}
           </p>
+        </div>
+
+        <div className="pallet-part">
+          <span className="field-label">Reference photos</span>
           <label className="check">
             <input
               type="checkbox"
-              checked={addAmazonReferencePhoto}
-              onChange={(e) => setAddAmazonReferencePhoto(e.target.checked)}
+              checked={referencePhotoEnabled}
+              onChange={(e) => setReferencePhotoEnabled(e.target.checked)}
             />
-            Auto-add one Amazon product photo (Amazon source only)
+            Auto-add reference product photos from selected Item Sourcing Site
           </label>
+          <label className="field">
+            <span>Reference photo count (1–4)</span>
+            <select
+              value={String(referencePhotoCount)}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                setReferencePhotoCount(n === 2 || n === 3 || n === 4 ? n : 1)
+              }}
+              disabled={!referencePhotoEnabled}
+            >
+              <option value="1">1 photo</option>
+              <option value="2">2 photos</option>
+              <option value="3">3 photos</option>
+              <option value="4">4 photos</option>
+            </select>
+          </label>
+          <p className="muted tiny">
+            Uses the current Item Sourcing Site ({source === 'homedepot'
+              ? 'Home Depot'
+              : source.charAt(0).toUpperCase() + source.slice(1)}).
+          </p>
         </div>
 
         <div className="pallet-part">

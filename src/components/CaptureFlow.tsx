@@ -34,7 +34,8 @@ type Props = {
   bidStrategy?: BidStrategy
   bidPriceSettings: BidPriceSettings
   source: PalletSource
-  addAmazonReferencePhoto: boolean
+  referencePhotoEnabled: boolean
+  referencePhotoCount: 1 | 2 | 3 | 4
   lotDescriptionSettings: LotDescriptionSettings
   onCancel: () => void
   onSaved: (data: {
@@ -64,7 +65,8 @@ export function CaptureFlow({
   bidStrategy = 'recommended',
   bidPriceSettings,
   source,
-  addAmazonReferencePhoto,
+  referencePhotoEnabled,
+  referencePhotoCount,
   lotDescriptionSettings,
   onCancel,
   onSaved,
@@ -72,7 +74,8 @@ export function CaptureFlow({
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])
-  const [referenceImageBlob, setReferenceImageBlob] = useState<Blob | null>(null)
+  const [referenceImageBlobs, setReferenceImageBlobs] = useState<Blob[]>([])
+  const [referenceImageWarning, setReferenceImageWarning] = useState('')
   const [phase, setPhase] = useState<'shoot' | 'review'>('shoot')
   const [fields, setFields] = useState<DraftFields>({
     productNo,
@@ -87,9 +90,9 @@ export function CaptureFlow({
   const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(lotDescriptionSettings)
 
   const previews = useMemo(() => photos.map((b) => URL.createObjectURL(b)), [photos])
-  const referencePreview = useMemo(
-    () => (referenceImageBlob ? URL.createObjectURL(referenceImageBlob) : null),
-    [referenceImageBlob],
+  const referencePreviews = useMemo(
+    () => referenceImageBlobs.map((blob) => URL.createObjectURL(blob)),
+    [referenceImageBlobs],
   )
 
   useEffect(() => {
@@ -97,9 +100,8 @@ export function CaptureFlow({
   }, [previews])
 
   useEffect(() => {
-    if (!referencePreview) return
-    return () => URL.revokeObjectURL(referencePreview)
-  }, [referencePreview])
+    return () => referencePreviews.forEach((u) => URL.revokeObjectURL(u))
+  }, [referencePreviews])
 
   async function addFiles(fileList: FileList | null, options?: { reopenCamera?: boolean }) {
     if (!fileList?.length) return
@@ -145,13 +147,12 @@ export function CaptureFlow({
       const result = await analyzeProductPhotos(photos, {
         bidStrategy,
         source,
-        addAmazonReferencePhoto,
+        referencePhotoEnabled,
+        referencePhotoCount,
       })
-      setReferenceImageBlob(
-        result.referenceImageBlob && photos.length < MAX_PHOTOS_PER_PRODUCT
-          ? result.referenceImageBlob
-          : null,
-      )
+      const room = Math.max(0, MAX_PHOTOS_PER_PRODUCT - photos.length)
+      setReferenceImageBlobs(result.referenceImageBlobs.slice(0, room))
+      setReferenceImageWarning(result.referenceImageWarning ?? '')
       const parsed = parseDescriptionForEditing(result.description, lotDescriptionSettings)
       setFields((prev) => ({
         ...prev,
@@ -190,7 +191,7 @@ export function CaptureFlow({
         description: normalized.description,
         salePrice,
         bidPrice: parseMoney(fields.bidPrice),
-        imageBlobs: referenceImageBlob ? [referenceImageBlob, ...photos] : photos,
+        imageBlobs: [...referenceImageBlobs, ...photos].slice(0, MAX_PHOTOS_PER_PRODUCT),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -227,7 +228,7 @@ export function CaptureFlow({
 
   const canAddMore = photos.length < MAX_CAPTURE_PHOTOS_PER_PRODUCT
   const hasPhotos = photos.length > 0
-  const reviewPreviews = referencePreview ? [referencePreview, ...previews] : previews
+  const reviewPreviews = [...referencePreviews, ...previews]
   const safeSaleOrder = fields.saleOrder || '0'
 
   return (
@@ -348,7 +349,9 @@ export function CaptureFlow({
         <LotReviewForm
           previews={reviewPreviews}
           referenceNote={
-            referencePreview ? 'Amazon reference photo was added as the first image.' : undefined
+            referenceImageBlobs.length > 0
+              ? `${source === 'homedepot' ? 'Home Depot' : source.charAt(0).toUpperCase() + source.slice(1)} reference photo${referenceImageBlobs.length === 1 ? ' was' : 's were'} added first.`
+              : referenceImageWarning || undefined
           }
           productNo={fields.productNo}
           saleOrder={fields.saleOrder}

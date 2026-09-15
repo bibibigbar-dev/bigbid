@@ -27,7 +27,7 @@ import {
   loadSellerSettings,
   saveSellerSettings,
 } from './lib/seller'
-import { MAX_PHOTOS_PER_PRODUCT } from './types'
+import { MAX_CAPTURE_PHOTOS_PER_PRODUCT, MAX_PHOTOS_PER_PRODUCT } from './types'
 import type { PalletConfig, Product, SellerSettings } from './types'
 import './App.css'
 
@@ -93,11 +93,21 @@ export default function App() {
       if (aiQueueRef.current.has(product.id)) return
       aiQueueRef.current.add(product.id)
       try {
-        const result = await analyzeProductPhotos(product.imageBlobs, {
+        const basePhotos = product.imageBlobs.slice(-MAX_CAPTURE_PHOTOS_PER_PRODUCT)
+        const existingReferencePhotos = product.imageBlobs.slice(
+          0,
+          Math.max(0, product.imageBlobs.length - basePhotos.length),
+        )
+        const result = await analyzeProductPhotos(basePhotos, {
           bidStrategy: seller.bidStrategy,
           source: pallet?.source,
-          addAmazonReferencePhoto: seller.addAmazonReferencePhoto,
+          referencePhotoEnabled: seller.referencePhotoEnabled,
+          referencePhotoCount: seller.referencePhotoCount,
         })
+        const nextReferencePhotos =
+          result.referenceImageBlobs.length > 0
+            ? result.referenceImageBlobs
+            : existingReferencePhotos
         const parsed = parseDescriptionForEditing(result.description, seller.lotDescription)
         const salePrice = result.salePrice
         const normalized = normalizeLotContent({
@@ -111,10 +121,13 @@ export default function App() {
           description: normalized.description,
           salePrice,
           bidPrice: bidPriceFromRetail(salePrice, seller.bidPriceSettings) ?? result.bidPrice,
-          imageBlobs:
-            result.referenceImageBlob && product.imageBlobs.length < MAX_PHOTOS_PER_PRODUCT
-              ? [result.referenceImageBlob, ...product.imageBlobs]
-              : product.imageBlobs,
+          imageBlobs: [
+            ...nextReferencePhotos.slice(
+              0,
+              Math.max(0, MAX_PHOTOS_PER_PRODUCT - basePhotos.length),
+            ),
+            ...basePhotos,
+          ],
           aiFillStatus: 'completed',
           aiFillError: null,
         })
@@ -131,7 +144,8 @@ export default function App() {
     [
       pallet?.source,
       refresh,
-      seller.addAmazonReferencePhoto,
+      seller.referencePhotoCount,
+      seller.referencePhotoEnabled,
       seller.bidPriceSettings,
       seller.bidStrategy,
       seller.lotDescription,
@@ -288,7 +302,8 @@ export default function App() {
           bidStrategy={seller.bidStrategy}
           bidPriceSettings={seller.bidPriceSettings}
           source={pallet.source}
-          addAmazonReferencePhoto={seller.addAmazonReferencePhoto}
+          referencePhotoEnabled={seller.referencePhotoEnabled}
+          referencePhotoCount={seller.referencePhotoCount}
           lotDescriptionSettings={seller.lotDescription}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {
