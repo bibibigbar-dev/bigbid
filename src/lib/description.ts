@@ -25,10 +25,6 @@ export function buildDescriptionHeader(settings: LotDescriptionSettings): string
     `Functional: ${settings.functional}`,
     `Missing Parts/Pieces: ${settings.missingParts}`,
     `Packaging: ${settings.packaging}`,
-    '',
-    'The item description below is copied and pasted from third-party retail websites. Any warranties, guarantees, or representations expressed in those descriptions do not apply and are not valid for this sale.',
-    '',
-    '*Description',
   ].join('\n')
 }
 
@@ -86,15 +82,36 @@ export function buildHibidDescriptionWithSettings(
   const body = detail.trim() || fallbackTitle.trim() || 'Untitled item'
   const sharedDescription = settings.description.trim()
   const descriptionBody = sharedDescription ? `${sharedDescription}\n\n${body}` : body
-  return `${buildDescriptionHeader(settings)}\n${descriptionBody}`
+  return `${buildDescriptionHeader(settings)}\n\n${descriptionBody}`
 }
 
-/** Pull only the free-text under *Description (or whole text if marker missing). */
+function stripStructuredHeader(description: string): string | null {
+  const labels = [
+    'Condition',
+    'Condition Notes',
+    'Damage',
+    'Functional',
+    'Missing Parts/Pieces',
+    'Packaging',
+  ]
+  const lines = description.replace(/\r\n/g, '\n').split('\n')
+  if (lines.length < labels.length) return null
+  for (let i = 0; i < labels.length; i += 1) {
+    if (!lines[i].startsWith(`${labels[i]}:`)) return null
+  }
+  let bodyStart = labels.length
+  while (bodyStart < lines.length && !lines[bodyStart].trim()) bodyStart += 1
+  return lines.slice(bodyStart).join('\n').trim()
+}
+
+/** Pull only the free-text item body from both current and legacy formats. */
 export function extractDescriptionBody(description: string): string {
   const marker = '*Description'
   const idx = description.indexOf(marker)
-  if (idx < 0) return description.trim()
-  return description.slice(idx + marker.length).trim()
+  if (idx >= 0) return description.slice(idx + marker.length).trim()
+  const stripped = stripStructuredHeader(description)
+  if (stripped != null) return stripped
+  return description.trim()
 }
 
 function pickEnum<T extends string>(value: string, allowed: readonly T[], fallback: T): T {
