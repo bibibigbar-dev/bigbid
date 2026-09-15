@@ -309,27 +309,6 @@ export function PalletSetup({ initial, onConfirm }: Props) {
             </label>
           </div>
 
-          <div className="pallet-part">
-            <label className="field">
-              <span>Seller Code</span>
-              <input
-                value={sellerCode}
-                onChange={(e) => setSellerCode(e.target.value)}
-                placeholder="e.g. 165dc277-b"
-                autoComplete="off"
-                enterKeyHint="done"
-              />
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={rememberSeller}
-                onChange={(e) => setRememberSeller(e.target.checked)}
-              />
-              Remember Seller Code on this device
-            </label>
-          </div>
-
           <div className="field-row">
             <label className="field">
               <span>Functional</span>
@@ -380,6 +359,27 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               value={description}
               onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
             />
+          </label>
+        </div>
+
+        <div className="pallet-part">
+          <label className="field">
+            <span>Seller Code</span>
+            <input
+              value={sellerCode}
+              onChange={(e) => setSellerCode(e.target.value)}
+              placeholder="e.g. 165dc277-b"
+              autoComplete="off"
+              enterKeyHint="done"
+            />
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={rememberSeller}
+              onChange={(e) => setRememberSeller(e.target.checked)}
+            />
+            Remember Seller Code on this device
           </label>
         </div>
 
