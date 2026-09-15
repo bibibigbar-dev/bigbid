@@ -96,6 +96,7 @@ export default function App() {
         const result = await analyzeProductPhotos(product.imageBlobs, {
           bidStrategy: seller.bidStrategy,
           source: pallet?.source,
+          addAmazonReferencePhoto: seller.addAmazonReferencePhoto,
         })
         const parsed = parseDescriptionForEditing(result.description, seller.lotDescription)
         const salePrice = result.salePrice
@@ -127,7 +128,14 @@ export default function App() {
         await refresh(loadPalletConfig())
       }
     },
-    [pallet?.source, refresh, seller.bidPriceSettings, seller.bidStrategy, seller.lotDescription],
+    [
+      pallet?.source,
+      refresh,
+      seller.addAmazonReferencePhoto,
+      seller.bidPriceSettings,
+      seller.bidStrategy,
+      seller.lotDescription,
+    ],
   )
 
   async function confirmSetup(config: PalletConfig, sellerSettings: SellerSettings) {
@@ -280,6 +288,7 @@ export default function App() {
           bidStrategy={seller.bidStrategy}
           bidPriceSettings={seller.bidPriceSettings}
           source={pallet.source}
+          addAmazonReferencePhoto={seller.addAmazonReferencePhoto}
           lotDescriptionSettings={seller.lotDescription}
           onCancel={() => setMode('list')}
           onSaved={async (data) => {

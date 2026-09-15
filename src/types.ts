@@ -45,6 +45,8 @@ export type SellerSettings = {
   remember: boolean
   /** Which AI start-bid field to use. Default: recommended */
   bidStrategy: BidStrategy
+  /** When source is Amazon, attach one Amazon hero image automatically */
+  addAmazonReferencePhoto: boolean
   bidPriceSettings: BidPriceSettings
   lotDescription: LotDescriptionSettings
 }

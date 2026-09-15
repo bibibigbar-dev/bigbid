@@ -32,6 +32,7 @@ type Props = {
   bidStrategy?: BidStrategy
   bidPriceSettings: BidPriceSettings
   source: PalletSource
+  addAmazonReferencePhoto: boolean
   lotDescriptionSettings: LotDescriptionSettings
   onCancel: () => void
   onSaved: (data: {
@@ -60,6 +61,7 @@ export function CaptureFlow({
   bidStrategy = 'recommended',
   bidPriceSettings,
   source,
+  addAmazonReferencePhoto,
   lotDescriptionSettings,
   onCancel,
   onSaved,
@@ -136,7 +138,11 @@ export function CaptureFlow({
     setBusy(true)
     setError('')
     try {
-      const result = await analyzeProductPhotos(photos, { bidStrategy, source })
+      const result = await analyzeProductPhotos(photos, {
+        bidStrategy,
+        source,
+        addAmazonReferencePhoto,
+      })
       setReferenceImageBlob(
         result.referenceImageBlob && photos.length < MAX_PHOTOS_PER_PRODUCT
           ? result.referenceImageBlob
