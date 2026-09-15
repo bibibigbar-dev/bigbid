@@ -3,11 +3,13 @@ import {
   MAX_CAPTURE_PHOTOS_PER_PRODUCT,
   MAX_PHOTOS_PER_PRODUCT,
   type BidStrategy,
+  type BidPriceSettings,
   type LotDescriptionSettings,
   type PalletSource,
 } from '../types'
 import { compressToJpeg } from '../lib/image'
 import { analyzeProductPhotos } from '../lib/openai'
+import { bidPriceFromRetail } from '../lib/bid'
 import { normalizeLotContent, parseDescriptionForEditing } from '../lib/description'
 import { LotReviewForm } from './LotReviewForm'
 
@@ -22,6 +24,7 @@ type Props = {
   productNo: string
   saleOrder: string
   bidStrategy?: BidStrategy
+  bidPriceSettings: BidPriceSettings
   source: PalletSource
   lotDescriptionSettings: LotDescriptionSettings
   onCancel: () => void
@@ -46,6 +49,7 @@ export function CaptureFlow({
   productNo,
   saleOrder,
   bidStrategy = 'recommended',
+  bidPriceSettings,
   source,
   lotDescriptionSettings,
   onCancel,
@@ -134,7 +138,9 @@ export function CaptureFlow({
         name: result.title,
         description: parsed.body,
         salePrice: result.salePrice != null ? String(result.salePrice) : '',
-        bidPrice: result.bidPrice != null ? String(result.bidPrice) : '',
+        bidPrice: String(
+          bidPriceFromRetail(result.salePrice, bidPriceSettings) ?? result.bidPrice ?? '',
+        ),
       })
       setReviewSettings(parsed.settings)
       setPhase('review')
