@@ -273,7 +273,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               />
             </label>
             <label className="field">
-              <span>> $250</span>
+              <span>&gt; $250</span>
               <input
                 inputMode="decimal"
                 value={bidOver250}
