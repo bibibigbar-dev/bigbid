@@ -67,7 +67,7 @@ export function buildTitle(productName: string, retailPrice: number | null): str
 }
 
 /**
- * Fixed HiBid boilerplate, then product detail under *Description.
+ * Fixed HiBid header fields, then product detail body.
  * If detail is missing, use title.
  */
 export function buildHibidDescription(detail: string, fallbackTitle: string): string {
