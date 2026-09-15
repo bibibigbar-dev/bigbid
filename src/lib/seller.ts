@@ -16,11 +16,12 @@ function parseLotDescription(raw: unknown): SellerSettings['lotDescription'] {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_LOT_DESCRIPTION_SETTINGS }
   const value = raw as Partial<SellerSettings['lotDescription']>
   const hasSavedDamage = value.damage === 'Yes' || value.damage === 'No'
+  const savedDamage = value.damage === 'Yes' ? 'Yes' : 'No'
   const normalizedCondition = normalizeConditionNotesAndDamage(
     typeof value.conditionNotes === 'string'
       ? value.conditionNotes
       : DEFAULT_LOT_DESCRIPTION_SETTINGS.conditionNotes,
-    hasSavedDamage ? value.damage : DEFAULT_LOT_DESCRIPTION_SETTINGS.damage,
+    hasSavedDamage ? savedDamage : DEFAULT_LOT_DESCRIPTION_SETTINGS.damage,
     { preserveDamage: hasSavedDamage },
   )
   return {
