@@ -1,6 +1,6 @@
 import type { BidStrategy, SellerSettings } from '../types'
 import { DEFAULT_BID_PRICE_SETTINGS, normalizeBidPriceSettings } from './bid'
-import { DEFAULT_LOT_DESCRIPTION_SETTINGS } from './description'
+import { DEFAULT_LOT_DESCRIPTION_SETTINGS, normalizeConditionNotesAndDamage } from './description'
 
 const STORAGE_KEY = 'bigbid.seller'
 
@@ -15,14 +15,22 @@ const DEFAULTS: SellerSettings = {
 function parseLotDescription(raw: unknown): SellerSettings['lotDescription'] {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_LOT_DESCRIPTION_SETTINGS }
   const value = raw as Partial<SellerSettings['lotDescription']>
+  const hasSavedDamage = value.damage === 'Yes' || value.damage === 'No'
+  const savedDamage = value.damage === 'Yes' ? 'Yes' : 'No'
+  const normalizedCondition = normalizeConditionNotesAndDamage(
+    typeof value.conditionNotes === 'string'
+      ? value.conditionNotes
+      : DEFAULT_LOT_DESCRIPTION_SETTINGS.conditionNotes,
+    hasSavedDamage ? savedDamage : DEFAULT_LOT_DESCRIPTION_SETTINGS.damage,
+    { preserveDamage: hasSavedDamage },
+  )
   return {
     condition:
       value.condition === 'New' || value.condition === 'Open Box' || value.condition === 'Used'
         ? value.condition
         : DEFAULT_LOT_DESCRIPTION_SETTINGS.condition,
-    conditionNotes:
-      typeof value.conditionNotes === 'string' ? value.conditionNotes : DEFAULT_LOT_DESCRIPTION_SETTINGS.conditionNotes,
-    damage: value.damage === 'Yes' || value.damage === 'No' ? value.damage : DEFAULT_LOT_DESCRIPTION_SETTINGS.damage,
+    conditionNotes: normalizedCondition.conditionNotes,
+    damage: normalizedCondition.damage,
     functional:
       value.functional === 'Yes' ||
       value.functional === 'No' ||
@@ -65,6 +73,7 @@ export function loadSellerSettings(): SellerSettings {
 export function saveSellerSettings(settings: SellerSettings): void {
   const bidStrategy: BidStrategy =
     settings.bidStrategy === 'aggressive' ? 'aggressive' : 'recommended'
+  const normalizedLotDescription = parseLotDescription(settings.lotDescription)
   try {
     localStorage.setItem(
       STORAGE_KEY,
@@ -74,8 +83,7 @@ export function saveSellerSettings(settings: SellerSettings): void {
         bidStrategy,
         bidPriceSettings: normalizeBidPriceSettings(settings.bidPriceSettings),
         lotDescription: {
-          ...parseLotDescription(settings.lotDescription),
-          conditionNotes: settings.lotDescription.conditionNotes.trim(),
+          ...normalizedLotDescription,
           description: settings.lotDescription.description.trim().slice(0, 1000),
         },
       }),

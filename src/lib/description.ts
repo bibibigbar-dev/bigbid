@@ -17,11 +17,41 @@ export const DEFAULT_LOT_DESCRIPTION_SETTINGS: LotDescriptionSettings = {
   description: '',
 }
 
+const DAMAGE_NOTE_PATTERN = /(?:^|\n)\s*damage\s*:\s*(yes|no)\s*(?=\n|$)/gi
+
+export function normalizeConditionNotesAndDamage(
+  conditionNotes: string,
+  damage: YesNo,
+  options?: { preserveDamage?: boolean },
+): { conditionNotes: string; damage: YesNo } {
+  let nextDamage = damage
+  const matches = [...conditionNotes.matchAll(DAMAGE_NOTE_PATTERN)]
+  if (!options?.preserveDamage && matches.length > 0) {
+    const embeddedDamage = matches.at(-1)?.[1]?.toLowerCase()
+    if (embeddedDamage === 'yes' || embeddedDamage === 'no') {
+      nextDamage = embeddedDamage === 'yes' ? 'Yes' : 'No'
+    }
+  }
+
+  const cleanedConditionNotes = conditionNotes
+    .replace(DAMAGE_NOTE_PATTERN, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return {
+    conditionNotes: cleanedConditionNotes,
+    damage: nextDamage,
+  }
+}
+
 export function buildDescriptionHeader(settings: LotDescriptionSettings): string {
+  const normalized = normalizeConditionNotesAndDamage(settings.conditionNotes, settings.damage, {
+    preserveDamage: true,
+  })
   return [
     `Condition: ${settings.condition}`,
-    `Condition Notes: ${settings.conditionNotes.trim()}`,
-    `Damage: ${settings.damage}`,
+    `Condition Notes: ${normalized.conditionNotes}`,
+    `Damage: ${normalized.damage}`,
     `Functional: ${settings.functional}`,
     `Missing Parts/Pieces: ${settings.missingParts}`,
     `Packaging: ${settings.packaging}`,
@@ -153,14 +183,18 @@ export function parseDescriptionForEditing(
     ['Yes', 'No'],
     fallbackSettings.packaging,
   )
+  const rawDamage = getHeaderValue(description, 'Damage')?.trim()
   const conditionNotes =
     getHeaderValue(description, 'Condition Notes')?.trim() ?? fallbackSettings.conditionNotes
+  const normalizedCondition = normalizeConditionNotesAndDamage(conditionNotes, damage, {
+    preserveDamage: rawDamage != null,
+  })
 
   return {
     settings: {
       condition,
-      conditionNotes,
-      damage,
+      conditionNotes: normalizedCondition.conditionNotes,
+      damage: normalizedCondition.damage,
       functional,
       missingParts,
       packaging,
