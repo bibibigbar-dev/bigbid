@@ -37,6 +37,9 @@ export function PalletSetup({ initial, onConfirm }: Props) {
   const [bidStrategy, setBidStrategy] = useState<BidStrategy>(
     savedSeller.bidStrategy ?? 'recommended',
   )
+  const [addAmazonReferencePhoto, setAddAmazonReferencePhoto] = useState(
+    savedSeller.addAmazonReferencePhoto !== false,
+  )
   const [condition, setCondition] = useState<LotCondition>(savedSeller.lotDescription.condition)
   const [conditionNotes, setConditionNotes] = useState(savedSeller.lotDescription.conditionNotes)
   const [damage, setDamage] = useState<YesNo>(savedSeller.lotDescription.damage)
@@ -122,6 +125,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
         sellerCode: sellerCode.trim(),
         remember: rememberSeller,
         bidStrategy,
+        addAmazonReferencePhoto,
         bidPriceSettings,
         lotDescription: {
           condition,
@@ -223,6 +227,14 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               ? 'Uses AI recommended auction start bid (default), e.g. $10'
               : 'Uses AI aggressive start bid, e.g. $5'}
           </p>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={addAmazonReferencePhoto}
+              onChange={(e) => setAddAmazonReferencePhoto(e.target.checked)}
+            />
+            Auto-add one Amazon product photo (Amazon source only)
+          </label>
         </div>
 
         <div className="pallet-part">

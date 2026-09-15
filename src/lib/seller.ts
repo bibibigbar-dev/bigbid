@@ -8,6 +8,7 @@ const DEFAULTS: SellerSettings = {
   sellerCode: '',
   remember: true,
   bidStrategy: 'recommended',
+  addAmazonReferencePhoto: true,
   bidPriceSettings: DEFAULT_BID_PRICE_SETTINGS,
   lotDescription: DEFAULT_LOT_DESCRIPTION_SETTINGS,
 }
@@ -62,6 +63,7 @@ export function loadSellerSettings(): SellerSettings {
       sellerCode: parsed.sellerCode ?? '',
       remember: parsed.remember ?? true,
       bidStrategy: strategy === 'aggressive' ? 'aggressive' : 'recommended',
+      addAmazonReferencePhoto: parsed.addAmazonReferencePhoto !== false,
       bidPriceSettings: normalizeBidPriceSettings(parsed.bidPriceSettings),
       lotDescription: parseLotDescription(parsed.lotDescription),
     }
@@ -81,6 +83,7 @@ export function saveSellerSettings(settings: SellerSettings): void {
         sellerCode: settings.remember ? settings.sellerCode.trim() : '',
         remember: settings.remember,
         bidStrategy,
+        addAmazonReferencePhoto: settings.addAmazonReferencePhoto !== false,
         bidPriceSettings: normalizeBidPriceSettings(settings.bidPriceSettings),
         lotDescription: {
           ...normalizedLotDescription,

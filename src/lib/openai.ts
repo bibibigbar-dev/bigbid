@@ -273,7 +273,7 @@ Money fields must be numbers (not "$200"). Unknown → null. JSON only.`
 
 export async function analyzeProductPhotos(
   images: Blob[],
-  options?: { bidStrategy?: BidStrategy; source?: PalletSource },
+  options?: { bidStrategy?: BidStrategy; source?: PalletSource; addAmazonReferencePhoto?: boolean },
 ): Promise<AnalyzeResult> {
   if (images.length === 0) throw new Error('No photos to analyze.')
   const apiKey = getApiKey()
@@ -364,7 +364,7 @@ export async function analyzeProductPhotos(
   const description = buildHibidDescription(detail, title)
 
   let referenceImageBlob: Blob | null = null
-  if (source === 'amazon') {
+  if (source === 'amazon' && options?.addAmazonReferencePhoto !== false) {
     try {
       referenceImageBlob = await findAmazonReferenceImage(productName, apiKey)
     } catch {
