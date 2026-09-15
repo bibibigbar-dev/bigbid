@@ -103,28 +103,36 @@ function isDomainOrSubdomain(host: string, domain: string): boolean {
 
 type SourceValidationRule = {
   productPage: RegExp
+  productHosts: string[]
+  productHostPattern?: RegExp
   imageHosts: string[]
 }
 
 const SOURCE_VALIDATION: Record<PalletSource, SourceValidationRule> = {
   amazon: {
     productPage: /\/(dp|gp\/product)\/[a-z0-9]{10}(?:[/?]|$)/i,
+    productHosts: ['amazon.com'],
+    productHostPattern: /^([a-z0-9-]+\.)*amazon\.[a-z.]+$/,
     imageHosts: ['m.media-amazon.com', 'media-amazon.com', 'ssl-images-amazon.com'],
   },
   target: {
     productPage: /\/p\/.+/i,
+    productHosts: ['target.com'],
     imageHosts: ['target.scene7.com', 'target.com'],
   },
   walmart: {
     productPage: /\/ip\/.+/i,
+    productHosts: ['walmart.com'],
     imageHosts: ['i5.walmartimages.com', 'walmartimages.com', 'walmart.com'],
   },
   lowes: {
     productPage: /\/pd\/.+/i,
+    productHosts: ['lowes.com'],
     imageHosts: ['mobileimages.lowes.com', 'lowes.com'],
   },
   homedepot: {
     productPage: /\/p\/.+/i,
+    productHosts: ['homedepot.com'],
     imageHosts: ['images.thdstatic.com', 'homedepot-static.com', 'homedepot.com'],
   },
 }
@@ -143,12 +151,15 @@ function isAllowedImageUrl(value: string, source: PalletSource): boolean {
 
 function isValidProductPageUrl(value: string, source: PalletSource): boolean {
   try {
+    const rule = SOURCE_VALIDATION[source]
     const url = new URL(value)
     if (url.protocol !== 'https:') return false
     const host = url.hostname.toLowerCase()
-    const hasSourceHost = isDomainOrSubdomain(host, `${source}.com`) || host.includes(source)
-    if (!hasSourceHost) return false
-    return SOURCE_VALIDATION[source].productPage.test(url.pathname.toLowerCase())
+    const hostAllowed =
+      rule.productHosts.some((domain) => isDomainOrSubdomain(host, domain)) ||
+      (rule.productHostPattern ? rule.productHostPattern.test(host) : false)
+    if (!hostAllowed) return false
+    return rule.productPage.test(url.pathname.toLowerCase())
   } catch {
     return false
   }
@@ -226,11 +237,11 @@ Rules:
   }
 
   const candidates = parseReferenceSearchResult(raw)
-    .slice(0, count)
     .filter(
       (item) =>
         isValidProductPageUrl(item.pageUrl, source) && isAllowedImageUrl(item.imageUrl, source),
     )
+    .slice(0, count)
   if (!candidates.length) {
     return {
       blobs: [],
@@ -244,6 +255,7 @@ Rules:
     try {
       const imageRes = await fetch(candidate.imageUrl)
       if (!imageRes.ok) continue
+      if (!isAllowedImageUrl(imageRes.url, source)) continue
       const blob = await imageRes.blob()
       if (!blob.size) continue
       blobs.push(await compressToJpeg(blob))

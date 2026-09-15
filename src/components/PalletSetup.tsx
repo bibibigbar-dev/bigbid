@@ -265,7 +265,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
           </label>
           <p className="muted tiny">
             Uses the current Item Sourcing Site ({source === 'homedepot'
-              ? 'HomeDepot'
+              ? 'Home Depot'
               : source.charAt(0).toUpperCase() + source.slice(1)}).
           </p>
         </div>

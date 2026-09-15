@@ -191,7 +191,7 @@ export function CaptureFlow({
         description: normalized.description,
         salePrice,
         bidPrice: parseMoney(fields.bidPrice),
-        imageBlobs: [...referenceImageBlobs, ...photos],
+        imageBlobs: [...referenceImageBlobs, ...photos].slice(0, MAX_PHOTOS_PER_PRODUCT),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -350,7 +350,7 @@ export function CaptureFlow({
           previews={reviewPreviews}
           referenceNote={
             referenceImageBlobs.length > 0
-              ? `${source === 'homedepot' ? 'HomeDepot' : source.charAt(0).toUpperCase() + source.slice(1)} reference photo${referenceImageBlobs.length === 1 ? ' was' : 's were'} added first.`
+              ? `${source === 'homedepot' ? 'Home Depot' : source.charAt(0).toUpperCase() + source.slice(1)} reference photo${referenceImageBlobs.length === 1 ? ' was' : 's were'} added first.`
               : referenceImageWarning || undefined
           }
           productNo={fields.productNo}
