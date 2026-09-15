@@ -17,6 +17,15 @@ export type PalletConfig = {
 
 export type BidStrategy = 'recommended' | 'aggressive'
 
+export type BidPriceSettings = {
+  upTo20: number
+  upTo50: number
+  upTo100: number
+  upTo150: number
+  upTo250: number
+  over250: number
+}
+
 export type LotCondition = 'New' | 'Open Box' | 'Used'
 export type YesNo = 'Yes' | 'No'
 export type FunctionalStatus = 'Yes' | 'No' | 'Unable to Test'
@@ -36,6 +45,7 @@ export type SellerSettings = {
   remember: boolean
   /** Which AI start-bid field to use. Default: recommended */
   bidStrategy: BidStrategy
+  bidPriceSettings: BidPriceSettings
   lotDescription: LotDescriptionSettings
 }
 

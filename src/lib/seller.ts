@@ -1,4 +1,5 @@
 import type { BidStrategy, SellerSettings } from '../types'
+import { DEFAULT_BID_PRICE_SETTINGS, normalizeBidPriceSettings } from './bid'
 import { DEFAULT_LOT_DESCRIPTION_SETTINGS } from './description'
 
 const STORAGE_KEY = 'bigbid.seller'
@@ -7,6 +8,7 @@ const DEFAULTS: SellerSettings = {
   sellerCode: '',
   remember: true,
   bidStrategy: 'recommended',
+  bidPriceSettings: DEFAULT_BID_PRICE_SETTINGS,
   lotDescription: DEFAULT_LOT_DESCRIPTION_SETTINGS,
 }
 
@@ -52,6 +54,7 @@ export function loadSellerSettings(): SellerSettings {
       sellerCode: parsed.sellerCode ?? '',
       remember: parsed.remember ?? true,
       bidStrategy: strategy === 'aggressive' ? 'aggressive' : 'recommended',
+      bidPriceSettings: normalizeBidPriceSettings(parsed.bidPriceSettings),
       lotDescription: parseLotDescription(parsed.lotDescription),
     }
   } catch {
@@ -69,6 +72,7 @@ export function saveSellerSettings(settings: SellerSettings): void {
         sellerCode: settings.remember ? settings.sellerCode.trim() : '',
         remember: settings.remember,
         bidStrategy,
+        bidPriceSettings: normalizeBidPriceSettings(settings.bidPriceSettings),
         lotDescription: {
           ...parseLotDescription(settings.lotDescription),
           conditionNotes: settings.lotDescription.conditionNotes.trim(),
