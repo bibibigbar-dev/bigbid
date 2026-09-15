@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { LotDescriptionSettings, Product } from '../types'
 import { updateProduct } from '../lib/db'
-import { normalizeLotContent } from '../lib/description'
+import { normalizeLotContent, parseDescriptionForEditing } from '../lib/description'
+import { LotReviewForm } from './LotReviewForm'
 
 type Props = {
   product: Product
@@ -19,8 +20,10 @@ function parseMoney(value: string): number | null {
 
 export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved }: Props) {
   const saleOrder = product.sortNo.replace(/\D/g, '') || '0'
+  const parsed = parseDescriptionForEditing(product.description, lotDescriptionSettings)
   const [name, setName] = useState(product.name)
-  const [description, setDescription] = useState(product.description)
+  const [description, setDescription] = useState(parsed.body)
+  const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(parsed.settings)
   const [salePrice, setSalePrice] = useState(
     product.salePrice != null ? String(product.salePrice) : '',
   )
@@ -47,7 +50,7 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
         title: name.trim(),
         description: description.trim(),
         salePrice: parsedSale,
-        lotDescriptionSettings,
+        lotDescriptionSettings: reviewSettings,
       })
       await updateProduct(product.id, {
         name: normalized.title,
@@ -65,57 +68,27 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
 
   return (
     <section className="sheet">
-      <h1>
-        Edit {product.productNo}{' '}
-        <span className="muted">· Sale Order {saleOrder}</span>
-      </h1>
-      <form className="form" onSubmit={(e) => void handleSubmit(e)}>
-        <div className="photo-grid compact">
-          {previews.map((url) => (
-            <img key={url} src={url} alt="" className="thumb-sm" />
-          ))}
-        </div>
-        <label className="field">
-          <span>Title</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label className="field">
-          <span>Description</span>
-          <textarea
-            rows={8}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
-          />
-        </label>
-        <div className="field-row">
-          <label className="field">
-            <span>Retail / Reference price (for Title)</span>
-            <input
-              inputMode="decimal"
-              value={salePrice}
-              onChange={(e) => setSalePrice(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span>Start bid</span>
-            <input
-              inputMode="decimal"
-              value={bidPrice}
-              onChange={(e) => setBidPrice(e.target.value)}
-            />
-          </label>
-        </div>
-        {error && <p className="error">{error}</p>}
-        <div className="form-actions">
-          <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>
-            Cancel
-          </button>
-          <button type="submit" className="btn primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </form>
+      <h1>Lot {product.productNo}</h1>
+      <p className="muted">Sale Order {saleOrder}</p>
+      <LotReviewForm
+        previews={previews}
+        title={name}
+        description={description}
+        reviewSettings={reviewSettings}
+        salePrice={salePrice}
+        bidPrice={bidPrice}
+        busy={busy}
+        error={error}
+        secondaryLabel="Cancel"
+        primaryLabel={busy ? 'Saving…' : 'Save lot'}
+        onTitleChange={setName}
+        onDescriptionChange={setDescription}
+        onReviewSettingsChange={setReviewSettings}
+        onSalePriceChange={setSalePrice}
+        onBidPriceChange={setBidPrice}
+        onSecondaryAction={onCancel}
+        onSubmit={handleSubmit}
+      />
     </section>
   )
 }

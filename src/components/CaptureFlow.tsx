@@ -4,16 +4,14 @@ import {
   MAX_PHOTOS_PER_PRODUCT,
   type BidStrategy,
   type BidPriceSettings,
-  type FunctionalStatus,
-  type LotCondition,
   type LotDescriptionSettings,
   type PalletSource,
-  type YesNo,
 } from '../types'
 import { compressToJpeg } from '../lib/image'
 import { analyzeProductPhotos } from '../lib/openai'
 import { bidPriceFromRetail } from '../lib/bid'
 import { normalizeLotContent, parseDescriptionForEditing } from '../lib/description'
+import { LotReviewForm } from './LotReviewForm'
 
 type DraftFields = {
   name: string
@@ -278,180 +276,28 @@ export function CaptureFlow({
       )}
 
       {phase === 'review' && (
-        <form className="form" onSubmit={(e) => void handleSave(e)}>
-          <div className="photo-grid compact">
-            {reviewPreviews.map((url) => (
-              <img key={url} src={url} alt="" className="thumb-sm" />
-            ))}
-          </div>
-
-          {referencePreview && (
-            <p className="muted tiny">Amazon reference photo was added as the first image.</p>
-          )}
-
-          <label className="field">
-            <span>Title (max 50 chars, retail shown only if over $100)</span>
-            <input
-              value={fields.name}
-              maxLength={50}
-              onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
-              required
-            />
-          </label>
-
-          <div className="field">
-            <span>Description</span>
-            <div className="field-row">
-              <label className="field">
-                <span>Condition</span>
-                <select
-                  value={reviewSettings.condition}
-                  onChange={(e) =>
-                    setReviewSettings((prev) => ({
-                      ...prev,
-                      condition: e.target.value as LotCondition,
-                    }))
-                  }
-                >
-                  <option value="New">New</option>
-                  <option value="Open Box">Open Box</option>
-                  <option value="Used">Used</option>
-                </select>
-              </label>
-              <label className="field">
-                <span>Damage</span>
-                <select
-                  value={reviewSettings.damage}
-                  onChange={(e) =>
-                    setReviewSettings((prev) => ({ ...prev, damage: e.target.value as YesNo }))
-                  }
-                >
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="field-row">
-              <label className="field">
-                <span>Functional</span>
-                <select
-                  value={reviewSettings.functional}
-                  onChange={(e) =>
-                    setReviewSettings((prev) => ({
-                      ...prev,
-                      functional: e.target.value as FunctionalStatus,
-                    }))
-                  }
-                >
-                  <option value="Unable to Test">Unable to Test</option>
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
-              </label>
-              <label className="field">
-                <span>Missing Parts/Pieces</span>
-                <select
-                  value={reviewSettings.missingParts}
-                  onChange={(e) =>
-                    setReviewSettings((prev) => ({
-                      ...prev,
-                      missingParts: e.target.value as YesNo,
-                    }))
-                  }
-                >
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="field-row">
-              <label className="field">
-                <span>Packaging</span>
-                <select
-                  value={reviewSettings.packaging}
-                  onChange={(e) =>
-                    setReviewSettings((prev) => ({ ...prev, packaging: e.target.value as YesNo }))
-                  }
-                >
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
-              </label>
-              <label className="field">
-                <span>Condition Notes</span>
-                <input
-                  value={reviewSettings.conditionNotes}
-                  onChange={(e) =>
-                    setReviewSettings((prev) => ({ ...prev, conditionNotes: e.target.value }))
-                  }
-                  autoComplete="off"
-                />
-              </label>
-            </div>
-
-            <label className="field">
-              <span>Description (shared, max 1000 chars)</span>
-              <textarea
-                rows={4}
-                maxLength={1000}
-                value={reviewSettings.description}
-                onChange={(e) =>
-                  setReviewSettings((prev) => ({
-                    ...prev,
-                    description: e.target.value.slice(0, 1000),
-                  }))
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Item Description</span>
-              <textarea
-                rows={8}
-                value={fields.description}
-                onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
-                required
-              />
-            </label>
-          </div>
-
-          <div className="field-row">
-            <label className="field">
-              <span>Retail / Reference price (for Title)</span>
-              <input
-                inputMode="decimal"
-                value={fields.salePrice}
-                onChange={(e) => setFields((f) => ({ ...f, salePrice: e.target.value }))}
-              />
-            </label>
-            <label className="field">
-              <span>Start bid</span>
-              <input
-                inputMode="decimal"
-                value={fields.bidPrice}
-                onChange={(e) => setFields((f) => ({ ...f, bidPrice: e.target.value }))}
-              />
-            </label>
-          </div>
-
-          {error && <p className="error">{error}</p>}
-
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn ghost"
-              disabled={busy}
-              onClick={() => setPhase('shoot')}
-            >
-              Back to photos
-            </button>
-            <button type="submit" className="btn primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save lot'}
-            </button>
-          </div>
-        </form>
+        <LotReviewForm
+          previews={reviewPreviews}
+          referenceNote={
+            referencePreview ? 'Amazon reference photo was added as the first image.' : undefined
+          }
+          title={fields.name}
+          description={fields.description}
+          reviewSettings={reviewSettings}
+          salePrice={fields.salePrice}
+          bidPrice={fields.bidPrice}
+          busy={busy}
+          error={error}
+          secondaryLabel="Back to photos"
+          primaryLabel={busy ? 'Saving…' : 'Save lot'}
+          onTitleChange={(value) => setFields((f) => ({ ...f, name: value }))}
+          onDescriptionChange={(value) => setFields((f) => ({ ...f, description: value }))}
+          onReviewSettingsChange={setReviewSettings}
+          onSalePriceChange={(value) => setFields((f) => ({ ...f, salePrice: value }))}
+          onBidPriceChange={(value) => setFields((f) => ({ ...f, bidPrice: value }))}
+          onSecondaryAction={() => setPhase('shoot')}
+          onSubmit={handleSave}
+        />
       )}
     </section>
   )
