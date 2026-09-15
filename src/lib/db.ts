@@ -1,4 +1,4 @@
-import type { Product, ProductInput } from '../types'
+import { MAX_PHOTOS_PER_PRODUCT, type Product, type ProductInput } from '../types'
 
 type StoredImage = { type: string; data: ArrayBuffer }
 
@@ -515,8 +515,8 @@ export async function addProduct(input: ProductInput): Promise<Product> {
   if (!input.imageBlobs.length) {
     throw new Error('At least one photo is required.')
   }
-  if (input.imageBlobs.length > 10) {
-    throw new Error('Maximum 10 photos per product.')
+  if (input.imageBlobs.length > MAX_PHOTOS_PER_PRODUCT) {
+    throw new Error(`Maximum ${MAX_PHOTOS_PER_PRODUCT} photos per product.`)
   }
 
   const images = await blobsToStored(input.imageBlobs)
@@ -567,6 +567,9 @@ export async function updateProduct(
     })
     if (!existingRaw) throw new Error('Product not found.')
     const existing = normalizeProduct(existingRaw)
+    if (patch.imageBlobs && patch.imageBlobs.length > MAX_PHOTOS_PER_PRODUCT) {
+      throw new Error(`Maximum ${MAX_PHOTOS_PER_PRODUCT} photos per product.`)
+    }
     const productNo = patch.productNo ?? existing.productNo
     if (productNo !== existing.productNo) {
       const clash = await runStore({

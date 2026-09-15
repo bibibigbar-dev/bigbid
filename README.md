@@ -7,7 +7,7 @@ Mobile web app for HiBid lot capture (no-login MVP).
 1. Pallet number + Seller Code (remembered on device)
 2. Product codes auto-assigned from pallet rule
 3. Capture up to 10 photos per lot
-4. Finish photos → OpenAI fills title, description, sale price, start bid, and for Amazon lots can add one Amazon reference photo
+4. Finish photos → OpenAI fills title, description, sale price, start bid, and for Amazon lots can add one Amazon main reference photo as the first image
 5. Complete → `{palletId}_lots.csv` email/download + photos ZIP
 
 ## OpenAI API key
