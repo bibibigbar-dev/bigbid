@@ -105,7 +105,7 @@ function normalizeProduct(raw: StoredProduct): Product {
   return {
     id: raw.id,
     productNo,
-    sortNo: productNo,
+    sortNo: String(raw.sortNo ?? productNo),
     name: raw.name ?? '',
     description: raw.description ?? '',
     salePrice: raw.salePrice ?? null,
@@ -119,6 +119,18 @@ function normalizeProduct(raw: StoredProduct): Product {
     createdAt: raw.createdAt ?? Date.now(),
     updatedAt: raw.updatedAt ?? Date.now(),
   }
+}
+
+function normalizeProductNo(value: string): string {
+  const productNo = value.trim()
+  if (!productNo) throw new Error('Lot number is required.')
+  return productNo
+}
+
+function normalizeSortNo(value: string): string {
+  const sortNo = value.replace(/\D/g, '')
+  if (!sortNo) throw new Error('Sale order must include at least one digit.')
+  return sortNo
 }
 
 function reqToPromise<T>(request: IDBRequest<T>): Promise<T> {
@@ -506,10 +518,12 @@ export async function getProduct(id: string): Promise<Product | undefined> {
 }
 
 function buildStored(input: ProductInput, images: StoredImage[], id = newId(), createdAt = Date.now()): StoredProduct {
+  const productNo = normalizeProductNo(input.productNo)
+  const sortNo = normalizeSortNo(input.sortNo)
   return {
     id,
-    productNo: input.productNo,
-    sortNo: input.productNo,
+    productNo,
+    sortNo,
     name: input.name,
     description: input.description,
     salePrice: input.salePrice,
@@ -537,8 +551,8 @@ export async function addProduct(input: ProductInput): Promise<Product> {
     await runStore({
       idb: async () => {
         const db = await getDb()
-        const existing = await idbGetByProductNo(db, input.productNo)
-        if (existing) throw new Error(`Product number ${input.productNo} already exists.`)
+        const existing = await idbGetByProductNo(db, stored.productNo)
+        if (existing) throw new Error(`Product number ${stored.productNo} already exists.`)
         const tx = db.transaction('products', 'readwrite')
         tx.objectStore('products').add(stored)
         await waitForTx(tx)
@@ -582,19 +596,21 @@ export async function updateProduct(
       throw new Error(`Maximum ${MAX_PHOTOS_PER_PRODUCT} photos per product.`)
     }
     const productNo = patch.productNo ?? existing.productNo
-    if (productNo !== existing.productNo) {
+    const sortNo = patch.sortNo !== undefined ? normalizeSortNo(patch.sortNo) : existing.sortNo
+    const normalizedProductNo = normalizeProductNo(productNo)
+    if (normalizedProductNo !== existing.productNo) {
       const clash = await runStore({
         idb: async () => {
           const db = await getDb()
-          return idbGetByProductNo(db, productNo)
+          return idbGetByProductNo(db, normalizedProductNo)
         },
         fallback: async () => {
           const all = await fallbackList()
-          return all.find((p) => p.productNo === productNo)
+          return all.find((p) => p.productNo === normalizedProductNo)
         },
       })
       if (clash && clash.id !== id) {
-        throw new Error(`Product number ${productNo} already exists.`)
+        throw new Error(`Product number ${normalizedProductNo} already exists.`)
       }
     }
 
@@ -604,8 +620,8 @@ export async function updateProduct(
 
     const stored: StoredProduct = {
       id,
-      productNo,
-      sortNo: productNo,
+      productNo: normalizedProductNo,
+      sortNo,
       name: patch.name ?? existing.name,
       description: patch.description ?? existing.description,
       salePrice: patch.salePrice !== undefined ? patch.salePrice : existing.salePrice,

@@ -19,6 +19,8 @@ import {
 import { LotReviewForm } from './LotReviewForm'
 
 type DraftFields = {
+  productNo: string
+  saleOrder: string
   name: string
   description: string
   salePrice: string
@@ -37,6 +39,7 @@ type Props = {
   onCancel: () => void
   onSaved: (data: {
     productNo: string
+    sortNo: string
     name: string
     description: string
     salePrice: number | null
@@ -66,13 +69,14 @@ export function CaptureFlow({
   onCancel,
   onSaved,
 }: Props) {
-  const safeSaleOrder = saleOrder.replace(/\D/g, '') || '0'
   const cameraRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Blob[]>([])
   const [referenceImageBlob, setReferenceImageBlob] = useState<Blob | null>(null)
   const [phase, setPhase] = useState<'shoot' | 'review'>('shoot')
   const [fields, setFields] = useState<DraftFields>({
+    productNo,
+    saleOrder: saleOrder.replace(/\D/g, ''),
     name: '',
     description: '',
     salePrice: '',
@@ -149,14 +153,15 @@ export function CaptureFlow({
           : null,
       )
       const parsed = parseDescriptionForEditing(result.description, lotDescriptionSettings)
-      setFields({
+      setFields((prev) => ({
+        ...prev,
         name: result.title,
         description: parsed.body,
         salePrice: result.salePrice != null ? String(result.salePrice) : '',
         bidPrice: String(
           bidPriceFromRetail(result.salePrice, bidPriceSettings) ?? result.bidPrice ?? '',
         ),
-      })
+      }))
       setReviewSettings(parsed.settings)
       setPhase('review')
     } catch (e) {
@@ -179,7 +184,8 @@ export function CaptureFlow({
         lotDescriptionSettings: reviewSettings,
       })
       await onSaved({
-        productNo,
+        productNo: fields.productNo,
+        sortNo: fields.saleOrder,
         name: normalized.title,
         description: normalized.description,
         salePrice,
@@ -202,7 +208,8 @@ export function CaptureFlow({
     setError('')
     try {
       await onSaved({
-        productNo,
+        productNo: fields.productNo,
+        sortNo: fields.saleOrder,
         name: '?',
         description: DEFAULT_HIBID_DESCRIPTION,
         salePrice: null,
@@ -221,10 +228,11 @@ export function CaptureFlow({
   const canAddMore = photos.length < MAX_CAPTURE_PHOTOS_PER_PRODUCT
   const hasPhotos = photos.length > 0
   const reviewPreviews = referencePreview ? [referencePreview, ...previews] : previews
+  const safeSaleOrder = fields.saleOrder || '0'
 
   return (
     <section className="sheet">
-      <h1>Lot {productNo}</h1>
+      <h1>Lot {fields.productNo}</h1>
       <p className="muted">Sale Order {safeSaleOrder}</p>
 
       {phase === 'shoot' && (
@@ -342,6 +350,8 @@ export function CaptureFlow({
           referenceNote={
             referencePreview ? 'Amazon reference photo was added as the first image.' : undefined
           }
+          productNo={fields.productNo}
+          saleOrder={fields.saleOrder}
           title={fields.name}
           description={fields.description}
           reviewSettings={reviewSettings}
@@ -351,6 +361,8 @@ export function CaptureFlow({
           error={error}
           secondaryLabel="Back to photos"
           primaryLabel={busy ? 'Saving…' : 'Save lot'}
+          onProductNoChange={(value) => setFields((f) => ({ ...f, productNo: value }))}
+          onSaleOrderChange={(value) => setFields((f) => ({ ...f, saleOrder: value }))}
           onTitleChange={(value) => setFields((f) => ({ ...f, name: value }))}
           onDescriptionChange={(value) => setFields((f) => ({ ...f, description: value }))}
           onReviewSettingsChange={setReviewSettings}
