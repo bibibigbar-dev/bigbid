@@ -2,14 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PALLET_SOURCES,
   type BidStrategy,
+  type BidPriceSettings,
   type FunctionalStatus,
   type LotCondition,
   type PalletConfig,
   type PalletSource,
-  type PartMode,
   type SellerSettings,
   type YesNo,
 } from '../types'
+import { normalizeBidPriceSettings } from '../lib/bid'
 import { buildPalletConfig, peekSequence } from '../lib/pallet'
 import { loadSellerSettings } from '../lib/seller'
 
@@ -18,41 +19,19 @@ type Props = {
   onConfirm: (config: PalletConfig, seller: SellerSettings) => void | Promise<void>
 }
 
-function ModeToggle({
-  value,
-  onChange,
-}: {
-  value: PartMode
-  onChange: (mode: PartMode) => void
-}) {
-  return (
-    <div className="mode-toggle" role="group">
-      <button
-        type="button"
-        className={value === 'seq' ? 'active' : ''}
-        onClick={() => onChange('seq')}
-      >
-        Sequential
-      </button>
-      <button
-        type="button"
-        className={value === 'fixed' ? 'active' : ''}
-        onClick={() => onChange('fixed')}
-      >
-        Fixed
-      </button>
-    </div>
-  )
-}
-
 export function PalletSetup({ initial, onConfirm }: Props) {
   const savedSeller = loadSellerSettings()
+  const savedBidSettings = normalizeBidPriceSettings(savedSeller.bidPriceSettings)
   const errorRef = useRef<HTMLParagraphElement>(null)
   const [source, setSource] = useState<PalletSource>(initial?.source ?? 'amazon')
   const [numValue, setNumValue] = useState(initial?.numValue ?? '1')
-  const [numMode, setNumMode] = useState<PartMode>(initial?.numMode ?? 'seq')
   const [alphaValue, setAlphaValue] = useState(initial?.alphaValue ?? '')
-  const [alphaMode, setAlphaMode] = useState<PartMode>(initial?.alphaMode ?? 'fixed')
+  const [bidUpTo20, setBidUpTo20] = useState(String(savedBidSettings.upTo20))
+  const [bidUpTo50, setBidUpTo50] = useState(String(savedBidSettings.upTo50))
+  const [bidUpTo100, setBidUpTo100] = useState(String(savedBidSettings.upTo100))
+  const [bidUpTo150, setBidUpTo150] = useState(String(savedBidSettings.upTo150))
+  const [bidUpTo250, setBidUpTo250] = useState(String(savedBidSettings.upTo250))
+  const [bidOver250, setBidOver250] = useState(String(savedBidSettings.over250))
   const [sellerCode, setSellerCode] = useState(savedSeller.sellerCode)
   const [rememberSeller, setRememberSeller] = useState(savedSeller.remember ?? true)
   const [bidStrategy, setBidStrategy] = useState<BidStrategy>(
@@ -70,24 +49,56 @@ export function PalletSetup({ initial, onConfirm }: Props) {
 
   const preview = useMemo(() => {
     try {
-      const draft = buildPalletConfig({ source, numValue, numMode, alphaValue, alphaMode })
+      const draft = buildPalletConfig({
+        source,
+        numValue,
+        numMode: 'seq',
+        alphaValue,
+        alphaMode: 'fixed',
+      })
       const cursor =
         initial &&
         initial.numValue === draft.numValue &&
         initial.alphaValue === draft.alphaValue &&
-        initial.numMode === draft.numMode &&
-        initial.alphaMode === draft.alphaMode
+        draft.numMode === 'seq' &&
+        draft.alphaMode === 'fixed'
           ? { ...draft, nextNum: initial.nextNum, nextAlpha: initial.nextAlpha }
           : draft
       return peekSequence(cursor, 3)
     } catch {
       return []
     }
-  }, [source, numValue, numMode, alphaValue, alphaMode, initial])
+  }, [source, numValue, alphaValue, initial])
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [error])
+
+  function parseBidPriceSettings(): BidPriceSettings {
+    const parsed = normalizeBidPriceSettings({
+      upTo20: bidUpTo20,
+      upTo50: bidUpTo50,
+      upTo100: bidUpTo100,
+      upTo150: bidUpTo150,
+      upTo250: bidUpTo250,
+      over250: bidOver250,
+    })
+    const fields: Array<[label: string, value: string, normalized: number]> = [
+      ['≤ $20', bidUpTo20, parsed.upTo20],
+      ['$21–$50', bidUpTo50, parsed.upTo50],
+      ['$51–$100', bidUpTo100, parsed.upTo100],
+      ['$101–$150', bidUpTo150, parsed.upTo150],
+      ['$151–$250', bidUpTo250, parsed.upTo250],
+      ['> $250', bidOver250, parsed.over250],
+    ]
+    for (const [label, value, normalized] of fields) {
+      if (!value.trim()) throw new Error(`Enter start bid for ${label}.`)
+      if (Number(value) !== normalized) {
+        throw new Error(`Start bid for ${label} must be a valid non-negative number.`)
+      }
+    }
+    return parsed
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -99,11 +110,19 @@ export function PalletSetup({ initial, onConfirm }: Props) {
     }
     setBusy(true)
     try {
-      const config = buildPalletConfig({ source, numValue, numMode, alphaValue, alphaMode })
+      const config = buildPalletConfig({
+        source,
+        numValue,
+        numMode: 'seq',
+        alphaValue,
+        alphaMode: 'fixed',
+      })
+      const bidPriceSettings = parseBidPriceSettings()
       await onConfirm(config, {
         sellerCode: sellerCode.trim(),
         remember: rememberSeller,
         bidStrategy,
+        bidPriceSettings,
         lotDescription: {
           condition,
           conditionNotes: conditionNotes.trim(),
@@ -125,7 +144,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
     <section className="pallet-setup">
       <h1>Pallet setup</h1>
       <p className="muted setup-lead">
-        Set pallet numbering, seller code, and which start-bid AI should use.
+        Set pallet numbering, bid defaults, and which start-bid AI should use.
       </p>
 
       <form className="form" onSubmit={(e) => void handleSubmit(e)} noValidate>
@@ -147,7 +166,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
         <div className="pallet-part">
           <div className="pallet-part-head">
             <span>Digits</span>
-            <ModeToggle value={numMode} onChange={setNumMode} />
+            <strong>Sequential</strong>
           </div>
           <label className="field">
             <span>Starting digits</span>
@@ -165,7 +184,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
         <div className="pallet-part">
           <div className="pallet-part-head">
             <span>Letters</span>
-            <ModeToggle value={alphaMode} onChange={setAlphaMode} />
+            <strong>Fixed</strong>
           </div>
           <label className="field">
             <span>Starting letters (optional)</span>
@@ -207,24 +226,64 @@ export function PalletSetup({ initial, onConfirm }: Props) {
         </div>
 
         <div className="pallet-part">
-          <label className="field">
-            <span>Seller Code</span>
-            <input
-              value={sellerCode}
-              onChange={(e) => setSellerCode(e.target.value)}
-              placeholder="e.g. 165dc277-b"
-              autoComplete="off"
-              enterKeyHint="done"
-            />
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={rememberSeller}
-              onChange={(e) => setRememberSeller(e.target.checked)}
-            />
-            Remember Seller Code on this device
-          </label>
+          <span className="field-label">Bid price settings (default)</span>
+          <div className="field-row">
+            <label className="field">
+              <span>≤ $20</span>
+              <input
+                inputMode="decimal"
+                value={bidUpTo20}
+                onChange={(e) => setBidUpTo20(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>$21 – $50</span>
+              <input
+                inputMode="decimal"
+                value={bidUpTo50}
+                onChange={(e) => setBidUpTo50(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              <span>$51 – $100</span>
+              <input
+                inputMode="decimal"
+                value={bidUpTo100}
+                onChange={(e) => setBidUpTo100(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>$101 – $150</span>
+              <input
+                inputMode="decimal"
+                value={bidUpTo150}
+                onChange={(e) => setBidUpTo150(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              <span>$151 – $250</span>
+              <input
+                inputMode="decimal"
+                value={bidUpTo250}
+                onChange={(e) => setBidUpTo250(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>&gt; $250</span>
+              <input
+                inputMode="decimal"
+                value={bidOver250}
+                onChange={(e) => setBidOver250(e.target.value)}
+              />
+            </label>
+          </div>
+          <p className="muted tiny">
+            Uses this table first for auto-filled start bid; you can still edit per lot.
+          </p>
         </div>
 
         <div className="pallet-part">
@@ -247,6 +306,27 @@ export function PalletSetup({ initial, onConfirm }: Props) {
                 <option value="No">No</option>
                 <option value="Yes">Yes</option>
               </select>
+            </label>
+          </div>
+
+          <div className="pallet-part">
+            <label className="field">
+              <span>Seller Code</span>
+              <input
+                value={sellerCode}
+                onChange={(e) => setSellerCode(e.target.value)}
+                placeholder="e.g. 165dc277-b"
+                autoComplete="off"
+                enterKeyHint="done"
+              />
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={rememberSeller}
+                onChange={(e) => setRememberSeller(e.target.checked)}
+              />
+              Remember Seller Code on this device
             </label>
           </div>
 
