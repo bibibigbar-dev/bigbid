@@ -1,13 +1,8 @@
 import { useEffect, useState } from 'react'
-import type {
-  FunctionalStatus,
-  LotCondition,
-  LotDescriptionSettings,
-  Product,
-  YesNo,
-} from '../types'
+import type { LotDescriptionSettings, Product } from '../types'
 import { updateProduct } from '../lib/db'
 import { normalizeLotContent, parseDescriptionForEditing } from '../lib/description'
+import { LotReviewForm } from './LotReviewForm'
 
 type Props = {
   product: Product
@@ -73,165 +68,27 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
 
   return (
     <section className="sheet">
-      <h1>
-        Edit {product.productNo}{' '}
-        <span className="muted">· Sale Order {saleOrder}</span>
-      </h1>
-      <form className="form" onSubmit={(e) => void handleSubmit(e)}>
-        <div className="photo-grid compact">
-          {previews.map((url) => (
-            <img key={url} src={url} alt="" className="thumb-sm" />
-          ))}
-        </div>
-        <label className="field">
-          <span>Title</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <div className="field">
-          <span>Description</span>
-          <div className="field-row">
-            <label className="field">
-              <span>Condition</span>
-              <select
-                value={reviewSettings.condition}
-                onChange={(e) =>
-                  setReviewSettings((prev) => ({
-                    ...prev,
-                    condition: e.target.value as LotCondition,
-                  }))
-                }
-              >
-                <option value="New">New</option>
-                <option value="Open Box">Open Box</option>
-                <option value="Used">Used</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Damage</span>
-              <select
-                value={reviewSettings.damage}
-                onChange={(e) =>
-                  setReviewSettings((prev) => ({ ...prev, damage: e.target.value as YesNo }))
-                }
-              >
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="field-row">
-            <label className="field">
-              <span>Functional</span>
-              <select
-                value={reviewSettings.functional}
-                onChange={(e) =>
-                  setReviewSettings((prev) => ({
-                    ...prev,
-                    functional: e.target.value as FunctionalStatus,
-                  }))
-                }
-              >
-                <option value="Unable to Test">Unable to Test</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Missing Parts/Pieces</span>
-              <select
-                value={reviewSettings.missingParts}
-                onChange={(e) =>
-                  setReviewSettings((prev) => ({
-                    ...prev,
-                    missingParts: e.target.value as YesNo,
-                  }))
-                }
-              >
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="field-row">
-            <label className="field">
-              <span>Packaging</span>
-              <select
-                value={reviewSettings.packaging}
-                onChange={(e) =>
-                  setReviewSettings((prev) => ({ ...prev, packaging: e.target.value as YesNo }))
-                }
-              >
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Condition Notes</span>
-              <input
-                value={reviewSettings.conditionNotes}
-                onChange={(e) =>
-                  setReviewSettings((prev) => ({ ...prev, conditionNotes: e.target.value }))
-                }
-                autoComplete="off"
-              />
-            </label>
-          </div>
-
-          <label className="field">
-            <span>Description (shared, max 1000 chars)</span>
-            <textarea
-              rows={4}
-              maxLength={1000}
-              value={reviewSettings.description}
-              onChange={(e) =>
-                setReviewSettings((prev) => ({
-                  ...prev,
-                  description: e.target.value.slice(0, 1000),
-                }))
-              }
-            />
-          </label>
-
-          <label className="field">
-            <span>Item Description</span>
-            <textarea
-              rows={8}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-            />
-          </label>
-        </div>
-        <div className="field-row">
-          <label className="field">
-            <span>Retail / Reference price (for Title)</span>
-            <input
-              inputMode="decimal"
-              value={salePrice}
-              onChange={(e) => setSalePrice(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span>Start bid</span>
-            <input
-              inputMode="decimal"
-              value={bidPrice}
-              onChange={(e) => setBidPrice(e.target.value)}
-            />
-          </label>
-        </div>
-        {error && <p className="error">{error}</p>}
-        <div className="form-actions">
-          <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>
-            Cancel
-          </button>
-          <button type="submit" className="btn primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </form>
+      <h1>Lot {product.productNo}</h1>
+      <p className="muted">Sale Order {saleOrder}</p>
+      <LotReviewForm
+        previews={previews}
+        title={name}
+        description={description}
+        reviewSettings={reviewSettings}
+        salePrice={salePrice}
+        bidPrice={bidPrice}
+        busy={busy}
+        error={error}
+        secondaryLabel="Cancel"
+        primaryLabel={busy ? 'Saving…' : 'Save lot'}
+        onTitleChange={setName}
+        onDescriptionChange={setDescription}
+        onReviewSettingsChange={setReviewSettings}
+        onSalePriceChange={setSalePrice}
+        onBidPriceChange={setBidPrice}
+        onSecondaryAction={onCancel}
+        onSubmit={handleSubmit}
+      />
     </section>
   )
 }
