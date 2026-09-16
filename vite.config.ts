@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'bigbid',
-        short_name: 'bigbid',
+        name: 'bigbid AI',
+        short_name: 'bigbid AI',
         description: 'HiBid product capture and catalog',
         theme_color: '#0f6b4c',
         background_color: '#f3efe6',

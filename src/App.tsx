@@ -207,10 +207,10 @@ export default function App() {
     <div className="app">
       <header className="top">
         <div>
-          <p className="brand">bigbid</p>
+          <p className="brand">bigbid AI</p>
           <p className="tagline">
             {mode === 'setup'
-              ? 'AI inventory management system for smarter lot capture'
+              ? 'Take a photo. BigBid AI builds the lot.'
               : pallet
                 ? `Next lot ${formatProductNo(pallet.nextNum, pallet.nextAlpha)} · ${seller.bidStrategy} bid · ${seller.sellerCode || 'no seller'}`
                 : 'HiBid lot capture'}
