@@ -6,7 +6,6 @@ const STORAGE_KEY = 'bigbid.seller'
 
 const DEFAULTS: SellerSettings = {
   sellerCode: '',
-  remember: true,
   bidStrategy: 'recommended',
   referencePhotoEnabled: true,
   referencePhotoCount: 1,
@@ -71,7 +70,6 @@ export function loadSellerSettings(): SellerSettings {
       rawCount === 2 || rawCount === 3 || rawCount === 4 ? rawCount : 1
     return {
       sellerCode: parsed.sellerCode ?? '',
-      remember: parsed.remember ?? true,
       bidStrategy: strategy === 'aggressive' ? 'aggressive' : 'recommended',
       referencePhotoEnabled,
       referencePhotoCount,
@@ -91,8 +89,7 @@ export function saveSellerSettings(settings: SellerSettings): void {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        sellerCode: settings.remember ? settings.sellerCode.trim() : '',
-        remember: settings.remember,
+        sellerCode: settings.sellerCode.trim(),
         bidStrategy,
         referencePhotoEnabled: settings.referencePhotoEnabled !== false,
         referencePhotoCount:

@@ -33,7 +33,6 @@ export function PalletSetup({ initial, onConfirm }: Props) {
   const [bidUpTo250, setBidUpTo250] = useState(String(savedBidSettings.upTo250))
   const [bidOver250, setBidOver250] = useState(String(savedBidSettings.over250))
   const [sellerCode, setSellerCode] = useState(savedSeller.sellerCode)
-  const [rememberSeller, setRememberSeller] = useState(savedSeller.remember ?? true)
   const [bidStrategy, setBidStrategy] = useState<BidStrategy>(
     savedSeller.bidStrategy ?? 'recommended',
   )
@@ -130,7 +129,6 @@ export function PalletSetup({ initial, onConfirm }: Props) {
       const bidPriceSettings = parseBidPriceSettings()
       await onConfirm(config, {
         sellerCode: sellerCode.trim(),
-        remember: rememberSeller,
         bidStrategy,
         referencePhotoEnabled,
         referencePhotoCount,
@@ -417,14 +415,6 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               autoComplete="off"
               enterKeyHint="done"
             />
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={rememberSeller}
-              onChange={(e) => setRememberSeller(e.target.checked)}
-            />
-            Remember Seller Code on this device
           </label>
         </div>
 
