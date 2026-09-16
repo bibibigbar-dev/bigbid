@@ -312,6 +312,9 @@ export function CaptureFlow({
             <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>
               Cancel
             </button>
+            <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>
+              Done
+            </button>
             {hasPhotos && (
               <>
                 {captureMode === 'background' && (
