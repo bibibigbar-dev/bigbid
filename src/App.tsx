@@ -253,7 +253,8 @@ export default function App() {
           {!loading && missingProducts.length > 0 && (
             <section className="missing-lots" aria-label="Missing product names">
               <p className="missing-lots-title">
-                Missing product names (?) · Total {missingProducts.length} lots
+                Missing product names (?) · Total {missingProducts.length}{' '}
+                {missingProducts.length === 1 ? 'lot' : 'lots'}
               </p>
               <div className="missing-lots-list">
                 {missingProducts.map((product) => (
