@@ -165,7 +165,12 @@ function isValidProductPageUrl(value: string, source: PalletSource): boolean {
   }
 }
 
-function parseReferenceSearchResult(raw: string): Array<{ pageUrl: string; imageUrl: string }> {
+type ReferenceSearchResult = {
+  pageUrl: string
+  imageUrl?: string
+}
+
+function parseReferenceSearchResult(raw: string): ReferenceSearchResult[] {
   const parsed = parseJsonText<{
     pageUrl?: unknown
     imageUrl?: unknown
@@ -173,18 +178,116 @@ function parseReferenceSearchResult(raw: string): Array<{ pageUrl: string; image
   }>(raw)
   if (!parsed) return []
   const single =
-    typeof parsed.pageUrl === 'string' && typeof parsed.imageUrl === 'string'
-      ? [{ pageUrl: parsed.pageUrl, imageUrl: parsed.imageUrl }]
+    typeof parsed.pageUrl === 'string'
+      ? [
+          {
+            pageUrl: parsed.pageUrl,
+            imageUrl: typeof parsed.imageUrl === 'string' ? parsed.imageUrl : undefined,
+          },
+        ]
       : []
   const listed = Array.isArray(parsed.results)
     ? parsed.results
         .map((item) => ({
           pageUrl: typeof item.pageUrl === 'string' ? item.pageUrl : '',
-          imageUrl: typeof item.imageUrl === 'string' ? item.imageUrl : '',
+          imageUrl: typeof item.imageUrl === 'string' ? item.imageUrl : undefined,
         }))
-        .filter((item) => item.pageUrl && item.imageUrl)
+        .filter((item) => item.pageUrl)
     : []
   return [...single, ...listed]
+}
+
+async function resolveHeroImageUrl(
+  pageUrl: string,
+  source: PalletSource,
+  apiKey: string,
+): Promise<string> {
+  const sourceLabel = SOURCE_LABEL[source]
+  const res = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4.1-mini',
+      tools: [{ type: 'web_search_preview' }],
+      input: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `Open this ${sourceLabel} product detail page and return ONLY valid JSON with this shape:
+{"imageUrl":"https://..."}
+
+Page:
+${pageUrl}
+
+Rules:
+- imageUrl must be the main/primary product hero image from this exact page.
+- Use the first gallery image for the product, not thumbnails, review photos, lifestyle photos, alternates, collages, or variation swatches.
+- imageUrl must be hosted on the retailer's own image CDN for this page.
+- If no reliable hero image is available, return {"imageUrl":""}.`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  if (!res.ok) return ''
+
+  const payload = (await res.json()) as unknown
+  const raw = extractResponseText(payload)
+  if (!raw) return ''
+
+  const parsed = parseJsonText<{ imageUrl?: unknown }>(raw)
+  return typeof parsed?.imageUrl === 'string' ? parsed.imageUrl : ''
+}
+
+async function resolveReferenceImageUrl(
+  candidate: ReferenceSearchResult,
+  source: PalletSource,
+  apiKey: string,
+): Promise<string> {
+  if (source === 'amazon' || !isAllowedImageUrl(candidate.imageUrl ?? '', source)) {
+    const resolved = await resolveHeroImageUrl(candidate.pageUrl, source, apiKey)
+    if (isAllowedImageUrl(resolved, source)) return resolved
+  }
+
+  return isAllowedImageUrl(candidate.imageUrl ?? '', source) ? (candidate.imageUrl ?? '') : ''
+}
+
+async function resolveReferenceImageUrls(
+  candidates: ReferenceSearchResult[],
+  source: PalletSource,
+  apiKey: string,
+): Promise<string[]> {
+  const concurrency = 2
+  const results = new Array<string>(candidates.length).fill('')
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < candidates.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      try {
+        results[currentIndex] = await resolveReferenceImageUrl(
+          candidates[currentIndex],
+          source,
+          apiKey,
+        )
+      } catch {
+        results[currentIndex] = ''
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(concurrency, candidates.length)) }, () => worker()),
+  )
+  return results
 }
 
 async function findReferenceImages(
@@ -236,24 +339,31 @@ Rules:
     return { blobs: [], warning: `${sourceLabel} reference photo search returned empty response.` }
   }
 
+  const seenPageUrls = new Set<string>()
   const candidates = parseReferenceSearchResult(raw)
-    .filter(
-      (item) =>
-        isValidProductPageUrl(item.pageUrl, source) && isAllowedImageUrl(item.imageUrl, source),
-    )
+    .filter((item) => isValidProductPageUrl(item.pageUrl, source))
+    .filter((item) => {
+      if (seenPageUrls.has(item.pageUrl)) return false
+      seenPageUrls.add(item.pageUrl)
+      return true
+    })
     .slice(0, count)
   if (!candidates.length) {
     return {
       blobs: [],
-      warning: `${sourceLabel} reference photo search found no valid product-image matches.`,
+      warning: `${sourceLabel} reference photo search found no valid product-page matches.`,
     }
   }
 
   const blobs: Blob[] = []
-  for (const candidate of candidates) {
+  const seenImageUrls = new Set<string>()
+  const resolvedImageUrls = await resolveReferenceImageUrls(candidates, source, apiKey)
+  for (const imageUrl of resolvedImageUrls) {
     if (blobs.length >= count) break
     try {
-      const imageRes = await fetch(candidate.imageUrl)
+      if (!imageUrl || seenImageUrls.has(imageUrl)) continue
+      seenImageUrls.add(imageUrl)
+      const imageRes = await fetch(imageUrl)
       if (!imageRes.ok) continue
       if (!isAllowedImageUrl(imageRes.url, source)) continue
       const blob = await imageRes.blob()
