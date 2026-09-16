@@ -8,6 +8,8 @@ import type {
 type Props = {
   previews: string[]
   referenceNote?: string
+  titleSourceUrl?: string | null
+  descriptionSourceUrl?: string | null
   productNo: string
   saleOrder: string
   title: string
@@ -33,6 +35,8 @@ type Props = {
 export function LotReviewForm({
   previews,
   referenceNote,
+  titleSourceUrl,
+  descriptionSourceUrl,
   productNo,
   saleOrder,
   title,
@@ -63,6 +67,33 @@ export function LotReviewForm({
       </div>
 
       {referenceNote && <p className="muted tiny">{referenceNote}</p>}
+      {titleSourceUrl && descriptionSourceUrl && titleSourceUrl === descriptionSourceUrl ? (
+        <p className="muted tiny">
+          AI source (title/description):{' '}
+          <a href={titleSourceUrl} target="_blank" rel="noreferrer">
+            {titleSourceUrl}
+          </a>
+        </p>
+      ) : (
+        <>
+          {titleSourceUrl && (
+            <p className="muted tiny">
+              AI source (title):{' '}
+              <a href={titleSourceUrl} target="_blank" rel="noreferrer">
+                {titleSourceUrl}
+              </a>
+            </p>
+          )}
+          {descriptionSourceUrl && (
+            <p className="muted tiny">
+              AI source (description):{' '}
+              <a href={descriptionSourceUrl} target="_blank" rel="noreferrer">
+                {descriptionSourceUrl}
+              </a>
+            </p>
+          )}
+        </>
+      )}
 
       <div className="field-row">
         <label className="field">

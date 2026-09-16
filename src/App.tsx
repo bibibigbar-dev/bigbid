@@ -119,6 +119,8 @@ export default function App() {
         await updateProduct(product.id, {
           name: normalized.title,
           description: normalized.description,
+          titleSourceUrl: result.titleSourceUrl,
+          descriptionSourceUrl: result.descriptionSourceUrl,
           salePrice,
           bidPrice: bidPriceFromRetail(salePrice, seller.bidPriceSettings) ?? result.bidPrice,
           imageBlobs: [
