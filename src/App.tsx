@@ -238,7 +238,7 @@ export default function App() {
               className="btn ghost pallet-link"
               onClick={() => setMode('setup')}
             >
-              Change pallet / seller
+              Change Setting
             </button>
           </div>
 
