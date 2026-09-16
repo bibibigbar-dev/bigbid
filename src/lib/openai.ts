@@ -459,6 +459,21 @@ Rules:
   return isValidProductPageUrl(pageUrl, source) ? pageUrl : ''
 }
 
+function reconcileReferencePhotoWarning(
+  warning: string | null,
+  source: PalletSource,
+  sourcePageUrl: string,
+): string | null {
+  if (!warning) return null
+  if (
+    sourcePageUrl &&
+    warning === `${SOURCE_LABEL[source]} reference photo search found no valid product-page matches.`
+  ) {
+    return `${SOURCE_LABEL[source]} source page was matched, but no reference photo was added.`
+  }
+  return warning
+}
+
 function stripAppearsNewUnused(text: string): string {
   return text
     .replace(/\bappears\s+new,?\s*unused\b(?:["')\].,!?]*)\s*$/i, '')
@@ -674,6 +689,11 @@ export async function analyzeProductPhotos(
       sourcePageUrl = ''
     }
   }
+  referenceImageWarning = reconcileReferencePhotoWarning(
+    referenceImageWarning,
+    source,
+    sourcePageUrl,
+  )
 
   return {
     title,

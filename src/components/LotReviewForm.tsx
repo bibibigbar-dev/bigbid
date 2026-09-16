@@ -43,6 +43,11 @@ function toSafeHttpUrl(value?: string | null): string | null {
   }
 }
 
+function openExternalUrl(url: string) {
+  const opened = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!opened) window.location.assign(url)
+}
+
 export function LotReviewForm({
   previews,
   referenceNote,
@@ -85,8 +90,16 @@ export function LotReviewForm({
       safeDescriptionSourceUrl &&
       safeTitleSourceUrl === safeDescriptionSourceUrl ? (
         <p className="muted tiny">
-          AI source (title/description):{' '}
-          <a href={safeTitleSourceUrl} target="_blank" rel="noreferrer">
+          AI matched source page:{' '}
+          <a
+            href={safeTitleSourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault()
+              openExternalUrl(safeTitleSourceUrl)
+            }}
+          >
             {safeTitleSourceUrl}
           </a>
         </p>
@@ -94,16 +107,32 @@ export function LotReviewForm({
         <>
           {safeTitleSourceUrl && (
             <p className="muted tiny">
-              AI source (title):{' '}
-              <a href={safeTitleSourceUrl} target="_blank" rel="noreferrer">
+              AI matched source page (title):{' '}
+              <a
+                href={safeTitleSourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault()
+                  openExternalUrl(safeTitleSourceUrl)
+                }}
+              >
                 {safeTitleSourceUrl}
               </a>
             </p>
           )}
           {safeDescriptionSourceUrl && (
             <p className="muted tiny">
-              AI source (description):{' '}
-              <a href={safeDescriptionSourceUrl} target="_blank" rel="noreferrer">
+              AI matched source page (description):{' '}
+              <a
+                href={safeDescriptionSourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault()
+                  openExternalUrl(safeDescriptionSourceUrl)
+                }}
+              >
                 {safeDescriptionSourceUrl}
               </a>
             </p>
