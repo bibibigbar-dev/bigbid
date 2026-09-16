@@ -33,6 +33,11 @@ import './App.css'
 
 type Mode = 'setup' | 'list' | 'capture' | 'edit'
 type CaptureMode = 'manual' | 'background'
+const UNKNOWN_NAME_PATTERN = /^[?？]+$/u
+
+function hasUnknownProductName(name: string): boolean {
+  return UNKNOWN_NAME_PATTERN.test(name.trim())
+}
 
 export default function App() {
   const [pallet, setPallet] = useState<PalletConfig | null>(() => loadPalletConfig())
@@ -49,7 +54,7 @@ export default function App() {
   const missingProducts = useMemo(
     () =>
       products.filter(
-        (product) => product.aiFillStatus === 'completed' && product.name.trim() === '?',
+        (product) => product.aiFillStatus === 'completed' && hasUnknownProductName(product.name),
       ),
     [products],
   )
