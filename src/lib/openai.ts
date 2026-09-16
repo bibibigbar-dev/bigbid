@@ -259,6 +259,28 @@ async function resolveReferenceImageUrl(
   return isAllowedImageUrl(candidate.imageUrl ?? '', source) ? (candidate.imageUrl ?? '') : ''
 }
 
+async function mapWithConcurrency<T, U>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<U>,
+): Promise<U[]> {
+  const results = new Array<U>(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await mapper(items[currentIndex])
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, () => worker()),
+  )
+  return results
+}
+
 async function findReferenceImages(
   productName: string,
   source: PalletSource,
@@ -326,8 +348,10 @@ Rules:
 
   const blobs: Blob[] = []
   const seenImageUrls = new Set<string>()
-  const resolvedImageUrls = await Promise.all(
-    candidates.map((candidate) => resolveReferenceImageUrl(candidate, source, apiKey)),
+  const resolvedImageUrls = await mapWithConcurrency(
+    candidates,
+    2,
+    (candidate) => resolveReferenceImageUrl(candidate, source, apiKey),
   )
   for (const imageUrl of resolvedImageUrls) {
     if (blobs.length >= count) break
