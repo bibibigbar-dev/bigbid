@@ -272,9 +272,10 @@ export function CaptureFlow({
             type="file"
             accept="image/*"
             capture="environment"
+            multiple
             hidden
             onChange={(e) => {
-              void addFiles(e.target.files, { reopenCamera: true })
+              void addFiles(e.target.files, { reopenCamera: (e.target.files?.length ?? 0) <= 1 })
               e.target.value = ''
             }}
           />
@@ -310,6 +311,9 @@ export function CaptureFlow({
           <div className="form-actions">
             <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>
               Cancel
+            </button>
+            <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>
+              Done
             </button>
             {hasPhotos && (
               <>
