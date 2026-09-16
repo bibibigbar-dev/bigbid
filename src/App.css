@@ -418,6 +418,13 @@
   gap: 0.5rem;
 }
 
+.export-delete-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 .export-msg {
   margin: 0.75rem 0 0;
   font-size: 0.88rem;
