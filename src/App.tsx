@@ -46,6 +46,9 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [captureMode, setCaptureMode] = useState<CaptureMode>('manual')
   const aiQueueRef = useRef<Set<string>>(new Set())
+  const missingProducts = products.filter(
+    (product) => product.aiFillStatus === 'completed' && product.name.trim() === '?',
+  )
 
   const refresh = useCallback(async (config?: PalletConfig | null) => {
     const base = config ?? loadPalletConfig()
@@ -243,6 +246,26 @@ export default function App() {
               Change Setting
             </button>
           </div>
+          {!loading && missingProducts.length > 0 && (
+            <section className="missing-lots" aria-label="Not found lots">
+              <p className="missing-lots-title">Not found (?) · Total {missingProducts.length} lots</p>
+              <div className="missing-lots-list">
+                {missingProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className="missing-lot-chip"
+                    onClick={() => {
+                      setEditing(product)
+                      setMode('edit')
+                    }}
+                  >
+                    Lot {product.productNo}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {loading ? (
             <p className="muted center">Loading…</p>
