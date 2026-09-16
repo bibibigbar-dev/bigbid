@@ -111,6 +111,9 @@ function normalizeProduct(raw: StoredProduct): Product {
     titleSourceUrl: typeof raw.titleSourceUrl === 'string' ? raw.titleSourceUrl : null,
     descriptionSourceUrl:
       typeof raw.descriptionSourceUrl === 'string' ? raw.descriptionSourceUrl : null,
+    referenceImageUrls: Array.isArray(raw.referenceImageUrls)
+      ? raw.referenceImageUrls.filter((value): value is string => typeof value === 'string')
+      : [],
     salePrice: raw.salePrice ?? null,
     bidPrice: raw.bidPrice ?? null,
     imageBlobs: storedToBlobs(raw.images, legacyBlobs),
@@ -403,6 +406,7 @@ async function fallbackAdd(stored: StoredProduct): Promise<void> {
     description: stored.description,
     titleSourceUrl: stored.titleSourceUrl,
     descriptionSourceUrl: stored.descriptionSourceUrl,
+    referenceImageUrls: stored.referenceImageUrls,
     salePrice: stored.salePrice,
     bidPrice: stored.bidPrice,
     aiFillStatus: stored.aiFillStatus,
@@ -430,6 +434,7 @@ async function fallbackPut(stored: StoredProduct): Promise<void> {
     description: stored.description,
     titleSourceUrl: stored.titleSourceUrl,
     descriptionSourceUrl: stored.descriptionSourceUrl,
+    referenceImageUrls: stored.referenceImageUrls,
     salePrice: stored.salePrice,
     bidPrice: stored.bidPrice,
     aiFillStatus: stored.aiFillStatus,
@@ -535,6 +540,7 @@ function buildStored(input: ProductInput, images: StoredImage[], id = newId(), c
     description: input.description,
     titleSourceUrl: input.titleSourceUrl ?? null,
     descriptionSourceUrl: input.descriptionSourceUrl ?? null,
+    referenceImageUrls: input.referenceImageUrls ?? [],
     salePrice: input.salePrice,
     bidPrice: input.bidPrice,
     images,
@@ -639,6 +645,10 @@ export async function updateProduct(
         patch.descriptionSourceUrl !== undefined
           ? patch.descriptionSourceUrl
           : existing.descriptionSourceUrl,
+      referenceImageUrls:
+        patch.referenceImageUrls !== undefined
+          ? patch.referenceImageUrls
+          : existing.referenceImageUrls,
       salePrice: patch.salePrice !== undefined ? patch.salePrice : existing.salePrice,
       bidPrice: patch.bidPrice !== undefined ? patch.bidPrice : existing.bidPrice,
       images,
