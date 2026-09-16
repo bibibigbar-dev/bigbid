@@ -93,6 +93,7 @@
 .missing-lot-chip:hover {
   background: #fff1d9;
   box-shadow: 0 0 0 2px rgba(240, 180, 87, 0.22);
+  text-decoration: underline;
 }
 
 .missing-lot-chip:active {
@@ -104,6 +105,7 @@
   outline-offset: 2px;
   background: #fff1d9;
   box-shadow: 0 0 0 2px rgba(240, 180, 87, 0.22);
+  text-decoration: underline;
 }
 
 .mode-toggle.bid-strategy {
