@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CaptureFlow } from './components/CaptureFlow'
 import { EditProduct } from './components/EditProduct'
 import { ExportBar } from './components/ExportBar'
@@ -46,8 +46,12 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [captureMode, setCaptureMode] = useState<CaptureMode>('manual')
   const aiQueueRef = useRef<Set<string>>(new Set())
-  const missingProducts = products.filter(
-    (product) => product.aiFillStatus === 'completed' && product.name.trim() === '?',
+  const missingProducts = useMemo(
+    () =>
+      products.filter(
+        (product) => product.aiFillStatus === 'completed' && product.name.trim() === '?',
+      ),
+    [products],
   )
 
   const refresh = useCallback(async (config?: PalletConfig | null) => {
@@ -247,8 +251,10 @@ export default function App() {
             </button>
           </div>
           {!loading && missingProducts.length > 0 && (
-            <section className="missing-lots" aria-label="Not found lots">
-              <p className="missing-lots-title">Not found (?) · Total {missingProducts.length} lots</p>
+            <section className="missing-lots" aria-label="Missing product names">
+              <p className="missing-lots-title">
+                Missing product names (?) · Total {missingProducts.length} lots
+              </p>
               <div className="missing-lots-list">
                 {missingProducts.map((product) => (
                   <button
