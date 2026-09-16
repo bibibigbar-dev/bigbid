@@ -82,7 +82,7 @@ export type ProductInput = {
   aiFillError?: string | null
 }
 
-export const MAX_CAPTURE_PHOTOS_PER_PRODUCT = 10
+export const MAX_CAPTURE_PHOTOS_PER_PRODUCT = 5
 export const MAX_REFERENCE_PHOTOS_PER_PRODUCT = 4
 export const MAX_PHOTOS_PER_PRODUCT =
   MAX_CAPTURE_PHOTOS_PER_PRODUCT + MAX_REFERENCE_PHOTOS_PER_PRODUCT
