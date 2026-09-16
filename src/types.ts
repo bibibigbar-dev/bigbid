@@ -42,7 +42,6 @@ export type LotDescriptionSettings = {
 
 export type SellerSettings = {
   sellerCode: string
-  remember: boolean
   /** Which AI start-bid field to use. Default: recommended */
   bidStrategy: BidStrategy
   /** Attach retailer reference product photos from selected Item Sourcing Site */
