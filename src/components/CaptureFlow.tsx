@@ -272,9 +272,10 @@ export function CaptureFlow({
             type="file"
             accept="image/*"
             capture="environment"
+            multiple
             hidden
             onChange={(e) => {
-              void addFiles(e.target.files, { reopenCamera: true })
+              void addFiles(e.target.files, { reopenCamera: (e.target.files?.length ?? 0) <= 1 })
               e.target.value = ''
             }}
           />
