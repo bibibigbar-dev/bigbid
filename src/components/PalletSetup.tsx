@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PALLET_SOURCES,
-  type BidStrategy,
   type BidPriceSettings,
   type FunctionalStatus,
   type LotCondition,
@@ -33,9 +32,6 @@ export function PalletSetup({ initial, onConfirm }: Props) {
   const [bidUpTo250, setBidUpTo250] = useState(String(savedBidSettings.upTo250))
   const [bidOver250, setBidOver250] = useState(String(savedBidSettings.over250))
   const [sellerCode, setSellerCode] = useState(savedSeller.sellerCode)
-  const [bidStrategy, setBidStrategy] = useState<BidStrategy>(
-    savedSeller.bidStrategy ?? 'recommended',
-  )
   const [referencePhotoEnabled, setReferencePhotoEnabled] = useState(
     savedSeller.referencePhotoEnabled !== false,
   )
@@ -129,7 +125,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
       const bidPriceSettings = parseBidPriceSettings()
       await onConfirm(config, {
         sellerCode: sellerCode.trim(),
-        bidStrategy,
+        bidStrategy: 'recommended',
         referencePhotoEnabled,
         referencePhotoCount,
         bidPriceSettings,
@@ -154,7 +150,7 @@ export function PalletSetup({ initial, onConfirm }: Props) {
     <section className="pallet-setup">
       <h1>Setting</h1>
       <p className="muted setup-lead">
-        Set pallet numbering, bid defaults, and which start-bid AI should use.
+        Set pallet numbering, bid defaults, and seller preferences.
       </p>
 
       <form className="form" onSubmit={(e) => void handleSubmit(e)} noValidate>
@@ -208,31 +204,12 @@ export function PalletSetup({ initial, onConfirm }: Props) {
               autoComplete="off"
             />
           </label>
-        </div>
-
-        <div className="pallet-part">
-          <span className="field-label">Start bid strategy</span>
-          <div className="mode-toggle bid-strategy" role="group">
-            <button
-              type="button"
-              className={bidStrategy === 'recommended' ? 'active' : ''}
-              onClick={() => setBidStrategy('recommended')}
-            >
-              Recommended
-            </button>
-            <button
-              type="button"
-              className={bidStrategy === 'aggressive' ? 'active' : ''}
-              onClick={() => setBidStrategy('aggressive')}
-            >
-              Aggressive
-            </button>
-          </div>
-          <p className="muted tiny">
-            {bidStrategy === 'recommended'
-              ? 'Uses AI recommended auction start bid (default), e.g. $10'
-              : 'Uses AI aggressive start bid, e.g. $5'}
-          </p>
+          {preview.length > 0 && (
+            <div className="preview-box">
+              <span className="muted">Preview sequence</span>
+              <strong>{preview.join(' → ')}</strong>
+            </div>
+          )}
         </div>
 
         <div className="pallet-part">
@@ -417,13 +394,6 @@ export function PalletSetup({ initial, onConfirm }: Props) {
             />
           </label>
         </div>
-
-        {preview.length > 0 && (
-          <div className="preview-box">
-            <span className="muted">Preview sequence</span>
-            <strong>{preview.join(' → ')}</strong>
-          </div>
-        )}
 
         {error && (
           <p ref={errorRef} className="error" role="alert">
