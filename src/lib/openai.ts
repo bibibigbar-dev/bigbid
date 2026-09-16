@@ -326,10 +326,12 @@ Rules:
 
   const blobs: Blob[] = []
   const seenImageUrls = new Set<string>()
-  for (const candidate of candidates) {
+  const resolvedImageUrls = await Promise.all(
+    candidates.map((candidate) => resolveReferenceImageUrl(candidate, source, apiKey)),
+  )
+  for (const imageUrl of resolvedImageUrls) {
     if (blobs.length >= count) break
     try {
-      const imageUrl = await resolveReferenceImageUrl(candidate, source, apiKey)
       if (!imageUrl || seenImageUrls.has(imageUrl)) continue
       seenImageUrls.add(imageUrl)
       const imageRes = await fetch(imageUrl)
