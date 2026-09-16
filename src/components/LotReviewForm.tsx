@@ -89,54 +89,80 @@ export function LotReviewForm({
       {safeTitleSourceUrl &&
       safeDescriptionSourceUrl &&
       safeTitleSourceUrl === safeDescriptionSourceUrl ? (
-        <p className="muted tiny">
-          AI matched source page:{' '}
-          <a
-            href={safeTitleSourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.preventDefault()
-              openExternalUrl(safeTitleSourceUrl)
-            }}
-          >
-            {safeTitleSourceUrl}
-          </a>
-        </p>
+        <>
+          <p className="muted tiny">
+            Title source: AI photo analysis + matched source page:{' '}
+            <a
+              href={safeTitleSourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.preventDefault()
+                openExternalUrl(safeTitleSourceUrl)
+              }}
+            >
+              {safeTitleSourceUrl}
+            </a>
+          </p>
+          <p className="muted tiny">
+            Description source: AI photo analysis + matched source page:{' '}
+            <a
+              href={safeDescriptionSourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.preventDefault()
+                openExternalUrl(safeDescriptionSourceUrl)
+              }}
+            >
+              {safeDescriptionSourceUrl}
+            </a>
+          </p>
+        </>
       ) : (
         <>
-          {safeTitleSourceUrl && (
-            <p className="muted tiny">
-              AI matched source page (title):{' '}
-              <a
-                href={safeTitleSourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  e.preventDefault()
-                  openExternalUrl(safeTitleSourceUrl)
-                }}
-              >
-                {safeTitleSourceUrl}
-              </a>
-            </p>
-          )}
-          {safeDescriptionSourceUrl && (
-            <p className="muted tiny">
-              AI matched source page (description):{' '}
-              <a
-                href={safeDescriptionSourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  e.preventDefault()
-                  openExternalUrl(safeDescriptionSourceUrl)
-                }}
-              >
-                {safeDescriptionSourceUrl}
-              </a>
-            </p>
-          )}
+          <p className="muted tiny">
+            Title source:{' '}
+            {safeTitleSourceUrl ? (
+              <>
+                AI photo analysis + matched source page:{' '}
+                <a
+                  href={safeTitleSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    openExternalUrl(safeTitleSourceUrl)
+                  }}
+                >
+                  {safeTitleSourceUrl}
+                </a>
+              </>
+            ) : (
+              'AI photo analysis (no matched source URL)'
+            )}
+          </p>
+          <p className="muted tiny">
+            Description source:{' '}
+            {safeDescriptionSourceUrl ? (
+              <>
+                AI photo analysis + matched source page:{' '}
+                <a
+                  href={safeDescriptionSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    openExternalUrl(safeDescriptionSourceUrl)
+                  }}
+                >
+                  {safeDescriptionSourceUrl}
+                </a>
+              </>
+            ) : (
+              'AI photo analysis (no matched source URL)'
+            )}
+          </p>
         </>
       )}
 
