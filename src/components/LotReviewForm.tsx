@@ -32,6 +32,17 @@ type Props = {
   onSubmit: (e: React.FormEvent) => void | Promise<void>
 }
 
+function toSafeHttpUrl(value?: string | null): string | null {
+  if (!value) return null
+  try {
+    const parsed = new URL(value)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString()
+    return null
+  } catch {
+    return null
+  }
+}
+
 export function LotReviewForm({
   previews,
   referenceNote,
@@ -58,6 +69,9 @@ export function LotReviewForm({
   onSecondaryAction,
   onSubmit,
 }: Props) {
+  const safeTitleSourceUrl = toSafeHttpUrl(titleSourceUrl)
+  const safeDescriptionSourceUrl = toSafeHttpUrl(descriptionSourceUrl)
+
   return (
     <form className="form" onSubmit={(e) => void onSubmit(e)}>
       <div className="photo-grid compact">
@@ -67,28 +81,30 @@ export function LotReviewForm({
       </div>
 
       {referenceNote && <p className="muted tiny">{referenceNote}</p>}
-      {titleSourceUrl && descriptionSourceUrl && titleSourceUrl === descriptionSourceUrl ? (
+      {safeTitleSourceUrl &&
+      safeDescriptionSourceUrl &&
+      safeTitleSourceUrl === safeDescriptionSourceUrl ? (
         <p className="muted tiny">
           AI source (title/description):{' '}
-          <a href={titleSourceUrl} target="_blank" rel="noreferrer">
-            {titleSourceUrl}
+          <a href={safeTitleSourceUrl} target="_blank" rel="noreferrer">
+            {safeTitleSourceUrl}
           </a>
         </p>
       ) : (
         <>
-          {titleSourceUrl && (
+          {safeTitleSourceUrl && (
             <p className="muted tiny">
               AI source (title):{' '}
-              <a href={titleSourceUrl} target="_blank" rel="noreferrer">
-                {titleSourceUrl}
+              <a href={safeTitleSourceUrl} target="_blank" rel="noreferrer">
+                {safeTitleSourceUrl}
               </a>
             </p>
           )}
-          {descriptionSourceUrl && (
+          {safeDescriptionSourceUrl && (
             <p className="muted tiny">
               AI source (description):{' '}
-              <a href={descriptionSourceUrl} target="_blank" rel="noreferrer">
-                {descriptionSourceUrl}
+              <a href={safeDescriptionSourceUrl} target="_blank" rel="noreferrer">
+                {safeDescriptionSourceUrl}
               </a>
             </p>
           )}

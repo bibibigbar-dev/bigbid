@@ -145,6 +145,8 @@ export function CaptureFlow({
       setError('Take at least one photo.')
       return
     }
+    setTitleSourceUrl(null)
+    setDescriptionSourceUrl(null)
     setBusy(true)
     setError('')
     try {
