@@ -77,6 +77,8 @@ export function EditProduct({ product, lotDescriptionSettings, onCancel, onSaved
       <p className="muted">Sale Order {saleOrder || '0'}</p>
       <LotReviewForm
         previews={previews}
+        titleSourceUrl={product.titleSourceUrl}
+        descriptionSourceUrl={product.descriptionSourceUrl}
         productNo={productNo}
         saleOrder={saleOrder}
         title={name}

@@ -10,6 +10,8 @@ import type { BidStrategy, PalletSource } from '../types'
 export type AnalyzeResult = {
   title: string
   description: string
+  titleSourceUrl: string | null
+  descriptionSourceUrl: string | null
   /** Retail / Reference price — used in Title ($79.99 Name) */
   salePrice: number | null
   bidPrice: number | null
@@ -20,6 +22,8 @@ export type AnalyzeResult = {
 const NOT_FOUND_RESULT: AnalyzeResult = {
   title: '?',
   description: DEFAULT_HIBID_DESCRIPTION,
+  titleSourceUrl: null,
+  descriptionSourceUrl: null,
   salePrice: null,
   bidPrice: null,
   referenceImageBlobs: [],
@@ -170,6 +174,19 @@ type ReferenceSearchResult = {
   imageUrl?: string
 }
 
+function parsePrimaryPageUrl(raw: string): string {
+  const parsed = parseJsonText<{
+    pageUrl?: unknown
+    results?: Array<{ pageUrl?: unknown }>
+  }>(raw)
+  if (typeof parsed?.pageUrl === 'string') return parsed.pageUrl
+  if (Array.isArray(parsed?.results)) {
+    const first = parsed.results.find((item) => typeof item?.pageUrl === 'string')
+    if (typeof first?.pageUrl === 'string') return first.pageUrl
+  }
+  return ''
+}
+
 function parseReferenceSearchResult(raw: string): ReferenceSearchResult[] {
   const parsed = parseJsonText<{
     pageUrl?: unknown
@@ -295,7 +312,7 @@ async function findReferenceImages(
   source: PalletSource,
   count: number,
   apiKey: string,
-): Promise<{ blobs: Blob[]; warning: string | null }> {
+): Promise<{ blobs: Blob[]; warning: string | null; pageUrls: string[] }> {
   const sourceLabel = SOURCE_LABEL[source]
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -330,13 +347,21 @@ Rules:
   })
 
   if (!res.ok) {
-    return { blobs: [], warning: `${sourceLabel} reference photo search failed (${res.status}).` }
+    return {
+      blobs: [],
+      warning: `${sourceLabel} reference photo search failed (${res.status}).`,
+      pageUrls: [],
+    }
   }
 
   const payload = (await res.json()) as unknown
   const raw = extractResponseText(payload)
   if (!raw) {
-    return { blobs: [], warning: `${sourceLabel} reference photo search returned empty response.` }
+    return {
+      blobs: [],
+      warning: `${sourceLabel} reference photo search returned empty response.`,
+      pageUrls: [],
+    }
   }
 
   const seenPageUrls = new Set<string>()
@@ -352,6 +377,7 @@ Rules:
     return {
       blobs: [],
       warning: `${sourceLabel} reference photo search found no valid product-page matches.`,
+      pageUrls: [],
     }
   }
 
@@ -377,6 +403,7 @@ Rules:
     return {
       blobs: [],
       warning: `${sourceLabel} images were found but blocked while downloading (CORS or retailer anti-bot).`,
+      pageUrls: candidates.map((item) => item.pageUrl),
     }
   }
   return {
@@ -385,7 +412,51 @@ Rules:
       blobs.length < count
         ? `${sourceLabel} reference photos: ${blobs.length}/${count} added (some images could not be downloaded).`
         : null,
+    pageUrls: candidates.map((item) => item.pageUrl),
   }
+}
+
+async function findSourcePageUrl(
+  productName: string,
+  source: PalletSource,
+  apiKey: string,
+): Promise<string> {
+  const sourceLabel = SOURCE_LABEL[source]
+  const res = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4.1-mini',
+      tools: [{ type: 'web_search_preview' }],
+      input: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `Find the single best-matching ${sourceLabel} product detail page for "${productName}".
+Return ONLY valid JSON with this shape:
+{"pageUrl":"https://..."}
+
+Rules:
+- pageUrl must be a valid ${sourceLabel} product detail URL for this item.
+- If there is no reliable match, return {"pageUrl":""}.`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  if (!res.ok) return ''
+  const payload = (await res.json()) as unknown
+  const raw = extractResponseText(payload)
+  if (!raw) return ''
+  const pageUrl = parsePrimaryPageUrl(raw).trim()
+  return isValidProductPageUrl(pageUrl, source) ? pageUrl : ''
 }
 
 function stripAppearsNewUnused(text: string): string {
@@ -581,6 +652,7 @@ export async function analyzeProductPhotos(
 
   let referenceImageBlobs: Blob[] = []
   let referenceImageWarning: string | null = null
+  let sourcePageUrl = ''
   const referencePhotoEnabled = options?.referencePhotoEnabled !== false
   const referencePhotoCount = options?.referencePhotoCount ?? 1
   if (referencePhotoEnabled) {
@@ -588,15 +660,25 @@ export async function analyzeProductPhotos(
       const result = await findReferenceImages(productName, source, referencePhotoCount, apiKey)
       referenceImageBlobs = result.blobs
       referenceImageWarning = result.warning
+      sourcePageUrl = result.pageUrls[0] ?? ''
     } catch {
       referenceImageBlobs = []
       referenceImageWarning = `${SOURCE_LABEL[source]} reference photo lookup failed.`
+    }
+  }
+  if (!sourcePageUrl) {
+    try {
+      sourcePageUrl = await findSourcePageUrl(productName, source, apiKey)
+    } catch {
+      sourcePageUrl = ''
     }
   }
 
   return {
     title,
     description,
+    titleSourceUrl: sourcePageUrl || null,
+    descriptionSourceUrl: sourcePageUrl || null,
     salePrice: retailPrice,
     bidPrice,
     referenceImageBlobs,

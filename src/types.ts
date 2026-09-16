@@ -61,6 +61,8 @@ export type Product = {
   sortNo: string
   name: string
   description: string
+  titleSourceUrl: string | null
+  descriptionSourceUrl: string | null
   salePrice: number | null
   bidPrice: number | null
   imageBlobs: Blob[]
@@ -75,6 +77,8 @@ export type ProductInput = {
   sortNo: string
   name: string
   description: string
+  titleSourceUrl?: string | null
+  descriptionSourceUrl?: string | null
   salePrice: number | null
   bidPrice: number | null
   imageBlobs: Blob[]

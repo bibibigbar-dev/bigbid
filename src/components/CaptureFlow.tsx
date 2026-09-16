@@ -43,6 +43,8 @@ type Props = {
     sortNo: string
     name: string
     description: string
+    titleSourceUrl?: string | null
+    descriptionSourceUrl?: string | null
     salePrice: number | null
     bidPrice: number | null
     imageBlobs: Blob[]
@@ -88,6 +90,8 @@ export function CaptureFlow({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(lotDescriptionSettings)
+  const [titleSourceUrl, setTitleSourceUrl] = useState<string | null>(null)
+  const [descriptionSourceUrl, setDescriptionSourceUrl] = useState<string | null>(null)
 
   const previews = useMemo(() => photos.map((b) => URL.createObjectURL(b)), [photos])
   const referencePreviews = useMemo(
@@ -141,6 +145,8 @@ export function CaptureFlow({
       setError('Take at least one photo.')
       return
     }
+    setTitleSourceUrl(null)
+    setDescriptionSourceUrl(null)
     setBusy(true)
     setError('')
     try {
@@ -163,6 +169,8 @@ export function CaptureFlow({
           bidPriceFromRetail(result.salePrice, bidPriceSettings) ?? result.bidPrice ?? '',
         ),
       }))
+      setTitleSourceUrl(result.titleSourceUrl)
+      setDescriptionSourceUrl(result.descriptionSourceUrl)
       setReviewSettings(parsed.settings)
       setPhase('review')
     } catch (e) {
@@ -189,6 +197,8 @@ export function CaptureFlow({
         sortNo: fields.saleOrder,
         name: normalized.title,
         description: normalized.description,
+        titleSourceUrl,
+        descriptionSourceUrl,
         salePrice,
         bidPrice: parseMoney(fields.bidPrice),
         imageBlobs: [...referenceImageBlobs, ...photos].slice(0, MAX_PHOTOS_PER_PRODUCT),
@@ -213,6 +223,8 @@ export function CaptureFlow({
         sortNo: fields.saleOrder,
         name: '?',
         description: DEFAULT_HIBID_DESCRIPTION,
+        titleSourceUrl: null,
+        descriptionSourceUrl: null,
         salePrice: null,
         bidPrice: null,
         imageBlobs: photos,
@@ -357,6 +369,8 @@ export function CaptureFlow({
               ? `${source === 'homedepot' ? 'Home Depot' : source.charAt(0).toUpperCase() + source.slice(1)} reference photo${referenceImageBlobs.length === 1 ? ' was' : 's were'} added first.`
               : referenceImageWarning || undefined
           }
+          titleSourceUrl={titleSourceUrl}
+          descriptionSourceUrl={descriptionSourceUrl}
           productNo={fields.productNo}
           saleOrder={fields.saleOrder}
           title={fields.name}

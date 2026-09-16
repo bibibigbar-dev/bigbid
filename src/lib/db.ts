@@ -108,6 +108,9 @@ function normalizeProduct(raw: StoredProduct): Product {
     sortNo: String(raw.sortNo ?? productNo),
     name: raw.name ?? '',
     description: raw.description ?? '',
+    titleSourceUrl: typeof raw.titleSourceUrl === 'string' ? raw.titleSourceUrl : null,
+    descriptionSourceUrl:
+      typeof raw.descriptionSourceUrl === 'string' ? raw.descriptionSourceUrl : null,
     salePrice: raw.salePrice ?? null,
     bidPrice: raw.bidPrice ?? null,
     imageBlobs: storedToBlobs(raw.images, legacyBlobs),
@@ -398,6 +401,8 @@ async function fallbackAdd(stored: StoredProduct): Promise<void> {
     sortNo: stored.sortNo,
     name: stored.name,
     description: stored.description,
+    titleSourceUrl: stored.titleSourceUrl,
+    descriptionSourceUrl: stored.descriptionSourceUrl,
     salePrice: stored.salePrice,
     bidPrice: stored.bidPrice,
     aiFillStatus: stored.aiFillStatus,
@@ -423,6 +428,8 @@ async function fallbackPut(stored: StoredProduct): Promise<void> {
     sortNo: stored.sortNo,
     name: stored.name,
     description: stored.description,
+    titleSourceUrl: stored.titleSourceUrl,
+    descriptionSourceUrl: stored.descriptionSourceUrl,
     salePrice: stored.salePrice,
     bidPrice: stored.bidPrice,
     aiFillStatus: stored.aiFillStatus,
@@ -526,6 +533,8 @@ function buildStored(input: ProductInput, images: StoredImage[], id = newId(), c
     sortNo,
     name: input.name,
     description: input.description,
+    titleSourceUrl: input.titleSourceUrl ?? null,
+    descriptionSourceUrl: input.descriptionSourceUrl ?? null,
     salePrice: input.salePrice,
     bidPrice: input.bidPrice,
     images,
@@ -624,6 +633,12 @@ export async function updateProduct(
       sortNo,
       name: patch.name ?? existing.name,
       description: patch.description ?? existing.description,
+      titleSourceUrl:
+        patch.titleSourceUrl !== undefined ? patch.titleSourceUrl : existing.titleSourceUrl,
+      descriptionSourceUrl:
+        patch.descriptionSourceUrl !== undefined
+          ? patch.descriptionSourceUrl
+          : existing.descriptionSourceUrl,
       salePrice: patch.salePrice !== undefined ? patch.salePrice : existing.salePrice,
       bidPrice: patch.bidPrice !== undefined ? patch.bidPrice : existing.bidPrice,
       images,
