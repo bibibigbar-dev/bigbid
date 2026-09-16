@@ -83,6 +83,17 @@
   font: inherit;
   color: #7a4100;
   cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.missing-lot-chip:hover {
+  box-shadow: 0 0 0 2px rgba(240, 180, 87, 0.22);
+}
+
+.missing-lot-chip:active {
+  transform: translateY(1px);
 }
 
 .missing-lot-chip:focus-visible {
