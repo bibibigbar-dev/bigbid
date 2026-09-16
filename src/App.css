@@ -269,6 +269,13 @@
   white-space: nowrap;
 }
 
+.meta .product-title {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+
 .prices {
   font-size: 0.85rem;
 }

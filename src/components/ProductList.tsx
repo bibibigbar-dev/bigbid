@@ -87,7 +87,7 @@ function ProductRow({
               {product.imageBlobs.length === 1 ? '' : 's'}
             </span>
           </strong>
-          <span>{product.name || '(untitled)'}</span>
+          <span className="product-title">{product.name || '(untitled)'}</span>
           <span className="muted prices">
             {aiPending
               ? 'AI fill running in background…'
