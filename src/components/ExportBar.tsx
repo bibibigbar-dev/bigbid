@@ -6,7 +6,7 @@ import {
   shareOrEmailLotsCsv,
   shareZipIfPossible,
 } from '../lib/export'
-import { deleteProducts } from '../lib/db'
+import { clearAllProducts, deleteProducts } from '../lib/db'
 
 type Props = {
   products: Product[]
@@ -67,6 +67,24 @@ export function ExportBar({
       await deleteProducts(selectedIds)
       await onChanged()
       setMessage(`Deleted ${selectedIds.length} lot(s).`)
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function handleDeleteAll() {
+    if (products.length === 0) {
+      setMessage('No lots to delete.')
+      return
+    }
+    if (!confirm(`Delete all ${products.length} lot(s) from the app?`)) return
+    setBusy('delete-all')
+    try {
+      await clearAllProducts()
+      await onChanged()
+      setMessage(`Deleted all ${products.length} lot(s).`)
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Delete failed')
     } finally {
@@ -167,6 +185,16 @@ export function ExportBar({
           onClick={() => setConfirmingStartOver(true)}
         >
           {busy === 'start-over' ? '…' : 'Start Over'}
+        </button>
+      </div>
+      <div className="export-delete-actions">
+        <button
+          type="button"
+          className="btn danger"
+          disabled={!!busy}
+          onClick={() => void handleDeleteAll()}
+        >
+          {busy === 'delete-all' ? '…' : 'Delete all'}
         </button>
         <button
           type="button"
