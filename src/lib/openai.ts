@@ -351,7 +351,13 @@ Rules:
   const resolvedImageUrls = await mapWithConcurrency(
     candidates,
     2,
-    (candidate) => resolveReferenceImageUrl(candidate, source, apiKey),
+    async (candidate) => {
+      try {
+        return await resolveReferenceImageUrl(candidate, source, apiKey)
+      } catch {
+        return ''
+      }
+    },
   )
   for (const imageUrl of resolvedImageUrls) {
     if (blobs.length >= count) break
