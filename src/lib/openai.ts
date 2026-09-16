@@ -635,10 +635,11 @@ export async function analyzeProductPhotos(
 
   const recommendedBid = parseMoney(parsed.auctionStartBid)
   const aggressiveBid = parseMoney(parsed.aggressiveStartBid)
-  const bidPrice =
+  const aiBidPrice =
     options?.bidStrategy === 'recommended'
       ? (recommendedBid ?? aggressiveBid ?? parseMoney(parsed.bidPrice))
       : (aggressiveBid ?? recommendedBid ?? parseMoney(parsed.bidPrice))
+  const bidPrice = retailPrice == null ? 5 : aiBidPrice
 
   const resolvedProductName = stripLeadingPrice((parsed.productName ?? parsed.name ?? '').trim())
   if (!resolvedProductName) return NOT_FOUND_RESULT
