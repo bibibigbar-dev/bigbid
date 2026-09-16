@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CaptureFlow } from './components/CaptureFlow'
 import { EditProduct } from './components/EditProduct'
 import { ExportBar } from './components/ExportBar'
@@ -33,6 +33,11 @@ import './App.css'
 
 type Mode = 'setup' | 'list' | 'capture' | 'edit'
 type CaptureMode = 'manual' | 'background'
+const UNKNOWN_NAME_PATTERN = /^[?？]+$/u
+
+function hasUnknownProductName(name: string): boolean {
+  return UNKNOWN_NAME_PATTERN.test(name.trim())
+}
 
 export default function App() {
   const [pallet, setPallet] = useState<PalletConfig | null>(() => loadPalletConfig())
@@ -46,6 +51,13 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [captureMode, setCaptureMode] = useState<CaptureMode>('manual')
   const aiQueueRef = useRef<Set<string>>(new Set())
+  const missingProducts = useMemo(
+    () =>
+      products.filter(
+        (product) => product.aiFillStatus === 'completed' && hasUnknownProductName(product.name),
+      ),
+    [products],
+  )
 
   const refresh = useCallback(async (config?: PalletConfig | null) => {
     const base = config ?? loadPalletConfig()
@@ -243,6 +255,29 @@ export default function App() {
               Change Setting
             </button>
           </div>
+          {!loading && missingProducts.length > 0 && (
+            <section className="missing-lots" aria-label="Missing product names">
+              <p className="missing-lots-title">
+                Missing product names (?) · Total {missingProducts.length}{' '}
+                {missingProducts.length === 1 ? 'lot' : 'lots'}
+              </p>
+              <div className="missing-lots-list">
+                {missingProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className="missing-lot-chip"
+                    onClick={() => {
+                      setEditing(product)
+                      setMode('edit')
+                    }}
+                  >
+                    Lot {product.productNo}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {loading ? (
             <p className="muted center">Loading…</p>

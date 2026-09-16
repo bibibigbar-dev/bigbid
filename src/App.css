@@ -54,6 +54,60 @@
   gap: 0.5rem;
 }
 
+.missing-lots {
+  margin: -0.25rem 0 1rem;
+  padding: 0.85rem;
+  border: 1px solid #f6c271;
+  border-radius: 14px;
+  background: #fff8ec;
+}
+
+.missing-lots-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #8a4b00;
+}
+
+.missing-lots-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.missing-lot-chip {
+  border: 1px solid #f0b457;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+  font-weight: 600;
+  color: #7a4100;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(122, 65, 0, 0.08);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.missing-lot-chip:hover {
+  background: #fff1d9;
+  box-shadow: 0 0 0 2px rgba(240, 180, 87, 0.22);
+  text-decoration: underline;
+}
+
+.missing-lot-chip:active {
+  transform: translateY(1px);
+}
+
+.missing-lot-chip:focus-visible {
+  outline: 2px solid #7a4100;
+  outline-offset: 2px;
+  background: #fff1d9;
+  box-shadow: 0 0 0 2px rgba(240, 180, 87, 0.22);
+  text-decoration: underline;
+}
+
 .mode-toggle.bid-strategy {
   width: 100%;
   margin-top: 0.35rem;
