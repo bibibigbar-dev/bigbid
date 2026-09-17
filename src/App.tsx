@@ -110,6 +110,10 @@ export default function App() {
           0,
           Math.max(0, product.imageBlobs.length - basePhotos.length),
         )
+        const existingReferenceImageUrls = product.referenceImageUrls.slice(
+          0,
+          existingReferencePhotos.length,
+        )
         const result = await analyzeProductPhotos(basePhotos, {
           bidStrategy: seller.bidStrategy,
           source: pallet?.source,
@@ -120,6 +124,10 @@ export default function App() {
           result.referenceImageBlobs.length > 0
             ? result.referenceImageBlobs
             : existingReferencePhotos
+        const nextReferenceImageUrls =
+          result.referenceImageBlobs.length > 0
+            ? result.referenceImageUrls
+            : existingReferenceImageUrls
         const parsed = parseDescriptionForEditing(result.description, seller.lotDescription)
         const salePrice = result.salePrice
         const normalized = normalizeLotContent({
@@ -133,6 +141,10 @@ export default function App() {
           description: normalized.description,
           titleSourceUrl: result.titleSourceUrl,
           descriptionSourceUrl: result.descriptionSourceUrl,
+          referenceImageUrls: nextReferenceImageUrls.slice(
+            0,
+            Math.max(0, MAX_PHOTOS_PER_PRODUCT - basePhotos.length),
+          ),
           salePrice,
           bidPrice: bidPriceFromRetail(salePrice, seller.bidPriceSettings) ?? result.bidPrice,
           imageBlobs: [

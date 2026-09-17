@@ -16,6 +16,7 @@ export type AnalyzeResult = {
   salePrice: number | null
   bidPrice: number | null
   referenceImageBlobs: Blob[]
+  referenceImageUrls: string[]
   referenceImageWarning: string | null
 }
 
@@ -27,6 +28,7 @@ const NOT_FOUND_RESULT: AnalyzeResult = {
   salePrice: null,
   bidPrice: null,
   referenceImageBlobs: [],
+  referenceImageUrls: [],
   referenceImageWarning: null,
 }
 
@@ -312,7 +314,7 @@ async function findReferenceImages(
   source: PalletSource,
   count: number,
   apiKey: string,
-): Promise<{ blobs: Blob[]; warning: string | null; pageUrls: string[] }> {
+): Promise<{ blobs: Blob[]; imageUrls: string[]; warning: string | null; pageUrls: string[] }> {
   const sourceLabel = SOURCE_LABEL[source]
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -349,6 +351,7 @@ Rules:
   if (!res.ok) {
     return {
       blobs: [],
+      imageUrls: [],
       warning: `${sourceLabel} reference photo search failed (${res.status}).`,
       pageUrls: [],
     }
@@ -359,6 +362,7 @@ Rules:
   if (!raw) {
     return {
       blobs: [],
+      imageUrls: [],
       warning: `${sourceLabel} reference photo search returned empty response.`,
       pageUrls: [],
     }
@@ -376,12 +380,14 @@ Rules:
   if (!candidates.length) {
     return {
       blobs: [],
+      imageUrls: [],
       warning: `${sourceLabel} reference photo search found no valid product-page matches.`,
       pageUrls: [],
     }
   }
 
   const blobs: Blob[] = []
+  const imageUrls: string[] = []
   const seenImageUrls = new Set<string>()
   const resolvedImageUrls = await resolveReferenceImageUrls(candidates, source, apiKey)
   for (const imageUrl of resolvedImageUrls) {
@@ -395,6 +401,7 @@ Rules:
       const blob = await imageRes.blob()
       if (!blob.size) continue
       blobs.push(await compressToJpeg(blob))
+      imageUrls.push(imageRes.url)
     } catch {
       continue
     }
@@ -402,12 +409,14 @@ Rules:
   if (!blobs.length) {
     return {
       blobs: [],
+      imageUrls: [],
       warning: `${sourceLabel} images were found but blocked while downloading (CORS or retailer anti-bot).`,
       pageUrls: candidates.map((item) => item.pageUrl),
     }
   }
   return {
     blobs,
+    imageUrls,
     warning:
       blobs.length < count
         ? `${sourceLabel} reference photos: ${blobs.length}/${count} added (some images could not be downloaded).`
@@ -667,6 +676,7 @@ export async function analyzeProductPhotos(
   const description = buildHibidDescription(detail, title)
 
   let referenceImageBlobs: Blob[] = []
+  let referenceImageUrls: string[] = []
   let referenceImageWarning: string | null = null
   let sourcePageUrl = ''
   const referencePhotoEnabled = options?.referencePhotoEnabled !== false
@@ -675,10 +685,12 @@ export async function analyzeProductPhotos(
     try {
       const result = await findReferenceImages(productName, source, referencePhotoCount, apiKey)
       referenceImageBlobs = result.blobs
+      referenceImageUrls = result.imageUrls
       referenceImageWarning = result.warning
       sourcePageUrl = result.pageUrls[0] ?? ''
     } catch {
       referenceImageBlobs = []
+      referenceImageUrls = []
       referenceImageWarning = `${SOURCE_LABEL[source]} reference photo lookup failed.`
     }
   }
@@ -703,6 +715,7 @@ export async function analyzeProductPhotos(
     salePrice: retailPrice,
     bidPrice,
     referenceImageBlobs,
+    referenceImageUrls,
     referenceImageWarning,
   }
 }

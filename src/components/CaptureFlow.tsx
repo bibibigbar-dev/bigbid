@@ -45,6 +45,7 @@ type Props = {
     description: string
     titleSourceUrl?: string | null
     descriptionSourceUrl?: string | null
+    referenceImageUrls?: string[]
     salePrice: number | null
     bidPrice: number | null
     imageBlobs: Blob[]
@@ -92,6 +93,7 @@ export function CaptureFlow({
   const [reviewSettings, setReviewSettings] = useState<LotDescriptionSettings>(lotDescriptionSettings)
   const [titleSourceUrl, setTitleSourceUrl] = useState<string | null>(null)
   const [descriptionSourceUrl, setDescriptionSourceUrl] = useState<string | null>(null)
+  const [referenceImageUrls, setReferenceImageUrls] = useState<string[]>([])
 
   const previews = useMemo(() => photos.map((b) => URL.createObjectURL(b)), [photos])
   const referencePreviews = useMemo(
@@ -147,6 +149,7 @@ export function CaptureFlow({
     }
     setTitleSourceUrl(null)
     setDescriptionSourceUrl(null)
+    setReferenceImageUrls([])
     setBusy(true)
     setError('')
     try {
@@ -157,7 +160,9 @@ export function CaptureFlow({
         referencePhotoCount,
       })
       const room = Math.max(0, MAX_PHOTOS_PER_PRODUCT - photos.length)
-      setReferenceImageBlobs(result.referenceImageBlobs.slice(0, room))
+      const nextReferenceImageBlobs = result.referenceImageBlobs.slice(0, room)
+      setReferenceImageBlobs(nextReferenceImageBlobs)
+      setReferenceImageUrls(result.referenceImageUrls.slice(0, nextReferenceImageBlobs.length))
       setReferenceImageWarning(result.referenceImageWarning ?? '')
       const parsed = parseDescriptionForEditing(result.description, lotDescriptionSettings)
       setFields((prev) => ({
@@ -199,6 +204,7 @@ export function CaptureFlow({
         description: normalized.description,
         titleSourceUrl,
         descriptionSourceUrl,
+        referenceImageUrls,
         salePrice,
         bidPrice: parseMoney(fields.bidPrice),
         imageBlobs: [...referenceImageBlobs, ...photos].slice(0, MAX_PHOTOS_PER_PRODUCT),
@@ -225,6 +231,7 @@ export function CaptureFlow({
         description: DEFAULT_HIBID_DESCRIPTION,
         titleSourceUrl: null,
         descriptionSourceUrl: null,
+        referenceImageUrls: [],
         salePrice: null,
         bidPrice: null,
         imageBlobs: photos,
@@ -364,6 +371,7 @@ export function CaptureFlow({
       {phase === 'review' && (
         <LotReviewForm
           previews={reviewPreviews}
+          referenceImageUrls={referenceImageUrls}
           referenceNote={
             referenceImageBlobs.length > 0
               ? `${source === 'homedepot' ? 'Home Depot' : source.charAt(0).toUpperCase() + source.slice(1)} reference photo${referenceImageBlobs.length === 1 ? ' was' : 's were'} added first.`

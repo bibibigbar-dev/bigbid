@@ -7,6 +7,7 @@ import type {
 
 type Props = {
   previews: string[]
+  referenceImageUrls?: string[]
   referenceNote?: string
   titleSourceUrl?: string | null
   descriptionSourceUrl?: string | null
@@ -50,6 +51,7 @@ function openExternalUrl(url: string) {
 
 export function LotReviewForm({
   previews,
+  referenceImageUrls = [],
   referenceNote,
   titleSourceUrl,
   descriptionSourceUrl,
@@ -76,13 +78,24 @@ export function LotReviewForm({
 }: Props) {
   const safeTitleSourceUrl = toSafeHttpUrl(titleSourceUrl)
   const safeDescriptionSourceUrl = toSafeHttpUrl(descriptionSourceUrl)
+  const safeReferenceImageUrls = referenceImageUrls.map((value) => toSafeHttpUrl(value))
 
   return (
     <form className="form" onSubmit={(e) => void onSubmit(e)}>
       <div className="photo-grid compact">
-        {previews.map((url) => (
-          <img key={url} src={url} alt="" className="thumb-sm" />
-        ))}
+        {previews.map((url, index) => {
+          const imageUrl = safeReferenceImageUrls[index]
+          return (
+            <div key={`${url}-${index}`} className="photo-preview-card">
+              <img src={url} alt="" className="thumb-sm" />
+              {imageUrl && (
+                <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="photo-url">
+                  {imageUrl}
+                </a>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {referenceNote && <p className="muted tiny">{referenceNote}</p>}

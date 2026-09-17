@@ -63,6 +63,7 @@ export type Product = {
   description: string
   titleSourceUrl: string | null
   descriptionSourceUrl: string | null
+  referenceImageUrls: string[]
   salePrice: number | null
   bidPrice: number | null
   imageBlobs: Blob[]
@@ -79,6 +80,7 @@ export type ProductInput = {
   description: string
   titleSourceUrl?: string | null
   descriptionSourceUrl?: string | null
+  referenceImageUrls?: string[]
   salePrice: number | null
   bidPrice: number | null
   imageBlobs: Blob[]
